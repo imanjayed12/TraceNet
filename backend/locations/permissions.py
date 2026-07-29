@@ -2,7 +2,10 @@ from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 
 class CanManageRoutes(BasePermission):
-    message = "You do not have permission to perform this route operation."
+    message = (
+        "You do not have permission to perform "
+        "this route operation."
+    )
 
     route_manager_roles = {
         "admin",
@@ -21,10 +24,20 @@ class CanManageRoutes(BasePermission):
             return True
 
         if request.method == "DELETE":
-            return user.is_superuser or user.role == "admin"
+            return (
+                user.is_superuser
+                or user.role == "admin"
+            )
 
         return (
             user.is_superuser
             or user.is_staff
             or user.role in self.route_manager_roles
         )
+
+
+class CanManageHotspots(CanManageRoutes):
+    message = (
+        "You do not have permission to perform "
+        "this hotspot operation."
+    )

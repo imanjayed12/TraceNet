@@ -3,6 +3,8 @@ from django.urls import path
 from .views import (
     DistrictDetailView,
     DistrictListView,
+    HotspotDetailView,
+    HotspotListCreateView,
     RouteDetailView,
     RouteListCreateView,
 )
@@ -30,5 +32,15 @@ urlpatterns = [
         "routes/<int:pk>/",
         RouteDetailView.as_view(),
         name="route-detail",
+    ),
+    path(
+        "hotspots/",
+        HotspotListCreateView.as_view(),
+        name="hotspot-list",
+    ),
+    path(
+        "hotspots/<int:pk>/",
+        HotspotDetailView.as_view(),
+        name="hotspot-detail",
     ),
 ]

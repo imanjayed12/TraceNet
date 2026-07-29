@@ -2,9 +2,13 @@ from django.db.models import Q
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
 
-from .models import District, Route
-from .permissions import CanManageRoutes
-from .serializers import DistrictSerializer, RouteSerializer
+from .models import District, Hotspot, Route
+from .permissions import CanManageHotspots, CanManageRoutes
+from .serializers import (
+    DistrictSerializer,
+    HotspotSerializer,
+    RouteSerializer,
+)
 
 
 class DistrictListView(generics.ListAPIView):
@@ -53,13 +57,21 @@ class RouteListCreateView(generics.ListCreateAPIView):
             "include_inactive",
         )
         origin = self.request.query_params.get("origin")
-        destination = self.request.query_params.get("destination")
-        route_type = self.request.query_params.get("route_type")
+        destination = self.request.query_params.get(
+            "destination",
+        )
+        route_type = self.request.query_params.get(
+            "route_type",
+        )
         transport_mode = self.request.query_params.get(
             "transport_mode",
         )
-        risk_level = self.request.query_params.get("risk_level")
-        is_verified = self.request.query_params.get("is_verified")
+        risk_level = self.request.query_params.get(
+            "risk_level",
+        )
+        is_verified = self.request.query_params.get(
+            "is_verified",
+        )
         search = self.request.query_params.get("search")
 
         if include_inactive != "true":
@@ -82,7 +94,9 @@ class RouteListCreateView(generics.ListCreateAPIView):
 
         if transport_mode:
             queryset = queryset.filter(
-                transport_mode__iexact=transport_mode.strip(),
+                transport_mode__iexact=(
+                    transport_mode.strip()
+                ),
             )
 
         if risk_level:
@@ -107,15 +121,99 @@ class RouteListCreateView(generics.ListCreateAPIView):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        serializer.save(
+            created_by=self.request.user,
+        )
 
 
-class RouteDetailView(generics.RetrieveUpdateDestroyAPIView):
+class RouteDetailView(
+    generics.RetrieveUpdateDestroyAPIView,
+):
     serializer_class = RouteSerializer
     permission_classes = (CanManageRoutes,)
 
     queryset = Route.objects.select_related(
         "origin",
         "destination",
+        "created_by",
+    )
+
+
+class HotspotListCreateView(
+    generics.ListCreateAPIView,
+):
+    serializer_class = HotspotSerializer
+    permission_classes = (CanManageHotspots,)
+
+    def get_queryset(self):
+        queryset = Hotspot.objects.select_related(
+            "district",
+            "created_by",
+        )
+
+        include_inactive = self.request.query_params.get(
+            "include_inactive",
+        )
+        district = self.request.query_params.get(
+            "district",
+        )
+        hotspot_type = self.request.query_params.get(
+            "hotspot_type",
+        )
+        risk_level = self.request.query_params.get(
+            "risk_level",
+        )
+        is_verified = self.request.query_params.get(
+            "is_verified",
+        )
+        search = self.request.query_params.get("search")
+
+        if include_inactive != "true":
+            queryset = queryset.filter(is_active=True)
+
+        if district:
+            queryset = queryset.filter(
+                district__slug__iexact=district.strip(),
+            )
+
+        if hotspot_type:
+            queryset = queryset.filter(
+                hotspot_type__iexact=hotspot_type.strip(),
+            )
+
+        if risk_level:
+            queryset = queryset.filter(
+                risk_level__iexact=risk_level.strip(),
+            )
+
+        if is_verified in {"true", "false"}:
+            queryset = queryset.filter(
+                is_verified=is_verified == "true",
+            )
+
+        if search:
+            search = search.strip()
+            queryset = queryset.filter(
+                Q(name__icontains=search)
+                | Q(district__name__icontains=search)
+                | Q(risk_explanation__icontains=search)
+            )
+
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(
+            created_by=self.request.user,
+        )
+
+
+class HotspotDetailView(
+    generics.RetrieveUpdateDestroyAPIView,
+):
+    serializer_class = HotspotSerializer
+    permission_classes = (CanManageHotspots,)
+
+    queryset = Hotspot.objects.select_related(
+        "district",
         "created_by",
     )

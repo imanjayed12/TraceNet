@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import District, Route
+from .models import District, Hotspot, Route
 
 
 @admin.register(District)
@@ -73,4 +73,54 @@ class RouteAdmin(admin.ModelAdmin):
     )
 
     ordering = ("-updated_at",)
+    list_per_page = 25
+
+
+@admin.register(Hotspot)
+class HotspotAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "district",
+        "hotspot_type",
+        "risk_score",
+        "risk_level",
+        "recent_case_count",
+        "is_verified",
+        "is_active",
+        "updated_at",
+    )
+
+    list_filter = (
+        "hotspot_type",
+        "risk_level",
+        "is_verified",
+        "is_active",
+        "district__division",
+    )
+
+    search_fields = (
+        "name",
+        "district__name",
+        "risk_explanation",
+    )
+
+    autocomplete_fields = (
+        "district",
+        "created_by",
+    )
+
+    readonly_fields = (
+        "risk_score",
+        "risk_level",
+        "risk_factors",
+        "risk_explanation",
+        "last_assessed_at",
+        "created_at",
+        "updated_at",
+    )
+
+    ordering = (
+        "-risk_score",
+        "name",
+    )
     list_per_page = 25

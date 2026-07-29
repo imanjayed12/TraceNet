@@ -1,6 +1,8 @@
+from django.utils import timezone
 from rest_framework import serializers
 
-from .models import District, Route
+from .models import District, Hotspot, Route
+from .risk_scoring import calculate_hotspot_risk
 
 
 class DistrictSerializer(serializers.ModelSerializer):
@@ -24,8 +26,12 @@ class DistrictSerializer(serializers.ModelSerializer):
 
 
 class RouteSerializer(serializers.ModelSerializer):
-    origin = DistrictSerializer(read_only=True)
-    destination = DistrictSerializer(read_only=True)
+    origin = DistrictSerializer(
+        read_only=True,
+    )
+    destination = DistrictSerializer(
+        read_only=True,
+    )
 
     origin_id = serializers.PrimaryKeyRelatedField(
         source="origin",
@@ -99,9 +105,170 @@ class RouteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {
                     "destination_id": (
-                        "Origin and destination must be different districts."
+                        "Origin and destination must be "
+                        "different districts."
                     )
                 }
             )
 
         return attrs
+
+
+class HotspotSerializer(serializers.ModelSerializer):
+    district = DistrictSerializer(
+        read_only=True,
+    )
+
+    district_id = serializers.PrimaryKeyRelatedField(
+        source="district",
+        queryset=District.objects.filter(is_active=True),
+        write_only=True,
+    )
+
+    hotspot_type_display = serializers.CharField(
+        source="get_hotspot_type_display",
+        read_only=True,
+    )
+    risk_level_display = serializers.CharField(
+        source="get_risk_level_display",
+        read_only=True,
+    )
+    created_by_name = serializers.CharField(
+        source="created_by.full_name",
+        read_only=True,
+    )
+
+    class Meta:
+        model = Hotspot
+        fields = (
+            "id",
+            "name",
+            "district",
+            "district_id",
+            "latitude",
+            "longitude",
+            "hotspot_type",
+            "hotspot_type_display",
+            "recent_case_count",
+            "active_route_count",
+            "verified_route_count",
+            "vulnerability_score",
+            "risk_score",
+            "risk_level",
+            "risk_level_display",
+            "risk_factors",
+            "risk_explanation",
+            "last_assessed_at",
+            "is_verified",
+            "is_active",
+            "created_by_name",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "risk_score",
+            "risk_level",
+            "risk_level_display",
+            "risk_factors",
+            "risk_explanation",
+            "last_assessed_at",
+            "created_by_name",
+            "created_at",
+            "updated_at",
+        )
+
+    def validate(self, attrs):
+        active_route_count = attrs.get(
+            "active_route_count",
+            getattr(
+                self.instance,
+                "active_route_count",
+                0,
+            ),
+        )
+        verified_route_count = attrs.get(
+            "verified_route_count",
+            getattr(
+                self.instance,
+                "verified_route_count",
+                0,
+            ),
+        )
+
+        if verified_route_count > active_route_count:
+            raise serializers.ValidationError(
+                {
+                    "verified_route_count": (
+                        "Verified route count cannot exceed "
+                        "active route count."
+                    )
+                }
+            )
+
+        return attrs
+
+    def _add_risk_assessment(self, validated_data):
+        instance = self.instance
+
+        recent_case_count = validated_data.get(
+            "recent_case_count",
+            getattr(
+                instance,
+                "recent_case_count",
+                0,
+            ),
+        )
+        active_route_count = validated_data.get(
+            "active_route_count",
+            getattr(
+                instance,
+                "active_route_count",
+                0,
+            ),
+        )
+        verified_route_count = validated_data.get(
+            "verified_route_count",
+            getattr(
+                instance,
+                "verified_route_count",
+                0,
+            ),
+        )
+        vulnerability_score = validated_data.get(
+            "vulnerability_score",
+            getattr(
+                instance,
+                "vulnerability_score",
+                0,
+            ),
+        )
+
+        assessment = calculate_hotspot_risk(
+            recent_case_count=recent_case_count,
+            active_route_count=active_route_count,
+            verified_route_count=verified_route_count,
+            vulnerability_score=vulnerability_score,
+        )
+
+        validated_data.update(
+            assessment,
+            last_assessed_at=timezone.now(),
+        )
+
+        return validated_data
+
+    def create(self, validated_data):
+        validated_data = self._add_risk_assessment(
+            validated_data,
+        )
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data = self._add_risk_assessment(
+            validated_data,
+        )
+        return super().update(
+            instance,
+            validated_data,
+        )
