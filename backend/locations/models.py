@@ -39,3 +39,93 @@ class District(models.Model):
 
     def __str__(self):
         return f"{self.name}, {self.get_division_display()}"
+class Route(models.Model):
+    class RouteType(models.TextChoices):
+        DOMESTIC = "domestic", "Domestic"
+        CROSS_BORDER = "cross_border", "Cross-border"
+
+    class TransportMode(models.TextChoices):
+        ROAD = "road", "Road"
+        RAIL = "rail", "Rail"
+        WATER = "water", "Water"
+        AIR = "air", "Air"
+        MIXED = "mixed", "Mixed"
+
+    class RiskLevel(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+        CRITICAL = "critical", "Critical"
+
+    name = models.CharField(
+        max_length=150,
+        unique=True,
+    )
+    origin = models.ForeignKey(
+        District,
+        on_delete=models.PROTECT,
+        related_name="outgoing_routes",
+    )
+    destination = models.ForeignKey(
+        District,
+        on_delete=models.PROTECT,
+        related_name="incoming_routes",
+    )
+    route_type = models.CharField(
+        max_length=20,
+        choices=RouteType.choices,
+        default=RouteType.DOMESTIC,
+    )
+    transport_mode = models.CharField(
+        max_length=20,
+        choices=TransportMode.choices,
+        default=TransportMode.ROAD,
+    )
+    risk_level = models.CharField(
+        max_length=20,
+        choices=RiskLevel.choices,
+        default=RiskLevel.LOW,
+    )
+    description = models.TextField(
+        blank=True,
+    )
+    evidence_summary = models.TextField(
+        blank=True,
+        help_text="Use anonymized or synthetic information only.",
+    )
+    is_verified = models.BooleanField(
+        default=False,
+    )
+    is_active = models.BooleanField(
+        default=True,
+    )
+    created_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        related_name="created_routes",
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        ordering = ("-updated_at", "name")
+        indexes = [
+            models.Index(fields=("origin", "destination")),
+            models.Index(fields=("risk_level", "is_active")),
+            models.Index(fields=("route_type", "is_active")),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(origin=models.F("destination")),
+                name="route_origin_destination_different",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name}: {self.origin} → {self.destination}"
