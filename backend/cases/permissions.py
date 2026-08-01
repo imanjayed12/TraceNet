@@ -26,6 +26,28 @@ CASE_MANAGER_ROLES = {
 }
 
 
+def is_approved_user(user):
+    return bool(
+        user
+        and user.is_authenticated
+        and user.is_active
+        and (
+            user.is_superuser
+            or user.access_status == "approved"
+        )
+    )
+
+
+def is_emergency_user(user):
+    return bool(
+        user
+        and user.is_authenticated
+        and user.is_active
+        and not user.is_superuser
+        and user.access_status == "emergency"
+    )
+
+
 class CanManageCases(BasePermission):
     message = (
         "You do not have permission to perform "
@@ -35,14 +57,20 @@ class CanManageCases(BasePermission):
     def has_permission(self, request, view):
         user = request.user
 
-        if not user or not user.is_authenticated:
-            return False
-
         if request.method in SAFE_METHODS:
+            if is_emergency_user(user):
+                return True
+
             return (
-                user.is_superuser
-                or user.role in CASE_VIEWER_ROLES
+                is_approved_user(user)
+                and (
+                    user.is_superuser
+                    or user.role in CASE_VIEWER_ROLES
+                )
             )
+
+        if not is_approved_user(user):
+            return False
 
         if request.method == "POST":
             return (
@@ -71,7 +99,7 @@ class CanManageCaseUpdates(BasePermission):
     def has_permission(self, request, view):
         user = request.user
 
-        if not user or not user.is_authenticated:
+        if not is_approved_user(user):
             return False
 
         if request.method in SAFE_METHODS:
@@ -105,7 +133,7 @@ class CanManageCaseRoutes(BasePermission):
     def has_permission(self, request, view):
         user = request.user
 
-        if not user or not user.is_authenticated:
+        if not is_approved_user(user):
             return False
 
         if request.method in SAFE_METHODS:
@@ -142,7 +170,7 @@ class CanManageVictimProfiles(BasePermission):
     def has_permission(self, request, view):
         user = request.user
 
-        if not user or not user.is_authenticated:
+        if not is_approved_user(user):
             return False
 
         if request.method == "DELETE":

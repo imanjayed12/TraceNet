@@ -456,3 +456,172 @@ class VictimProfile(models.Model):
             f"{self.anonymous_code} — "
             f"{self.case.reference_code}"
         )
+
+class EmergencyAccessInvitation(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        REVOKED = "revoked", "Revoked"
+        EXPIRED = "expired", "Expired"
+
+    case = models.ForeignKey(
+        Case,
+        on_delete=models.CASCADE,
+        related_name="emergency_invitations",
+    )
+    token = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+    )
+    invitee_email = models.EmailField()
+    sponsor = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.PROTECT,
+        related_name="sponsored_emergency_invitations",
+    )
+    reason = models.CharField(
+        max_length=255,
+        help_text=(
+            "Give a brief operational reason without "
+            "including victim-identifying information."
+        ),
+    )
+    expires_at = models.DateTimeField()
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    accepted_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        related_name="accepted_emergency_invitations",
+        null=True,
+        blank=True,
+    )
+    accepted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    revoked_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(
+                fields=("invitee_email", "status"),
+            ),
+            models.Index(
+                fields=("case", "status"),
+            ),
+            models.Index(
+                fields=("expires_at", "status"),
+            ),
+        ]
+
+    @property
+    def is_valid(self):
+        return (
+            self.status == self.Status.PENDING
+            and self.expires_at > timezone.now()
+        )
+
+    def __str__(self):
+        return (
+            f"Emergency invitation for "
+            f"{self.case.reference_code} "
+            f"to {self.invitee_email}"
+        )
+
+class CaseAccessGrant(models.Model):
+    class AccessLevel(models.TextChoices):
+        LIMITED = "limited", "Limited case access"
+        OPERATIONAL = "operational", "Operational case access"
+
+    case = models.ForeignKey(
+        Case,
+        on_delete=models.CASCADE,
+        related_name="access_grants",
+    )
+    user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="case_access_grants",
+    )
+    invitation = models.OneToOneField(
+        EmergencyAccessInvitation,
+        on_delete=models.PROTECT,
+        related_name="access_grant",
+    )
+    granted_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.PROTECT,
+        related_name="granted_case_access",
+    )
+    access_level = models.CharField(
+        max_length=20,
+        choices=AccessLevel.choices,
+        default=AccessLevel.LIMITED,
+    )
+    expires_at = models.DateTimeField()
+    is_active = models.BooleanField(
+        default=True,
+    )
+    revoked_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        related_name="revoked_case_access",
+        null=True,
+        blank=True,
+    )
+    revoked_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    revocation_reason = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    class Meta:
+        ordering = ("-created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("case", "user"),
+                name="unique_case_access_grant",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=("user", "is_active"),
+            ),
+            models.Index(
+                fields=("case", "is_active"),
+            ),
+            models.Index(
+                fields=("expires_at", "is_active"),
+            ),
+        ]
+
+    @property
+    def is_valid(self):
+        return (
+            self.is_active
+            and self.expires_at > timezone.now()
+        )
+
+    def __str__(self):
+        return (
+            f"{self.user.email} → "
+            f"{self.case.reference_code}"
+        )

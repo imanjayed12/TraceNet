@@ -2,8 +2,10 @@ from django.contrib import admin
 
 from .models import (
     Case,
+    CaseAccessGrant,
     CaseRoute,
     CaseUpdate,
+    EmergencyAccessInvitation,
     VictimProfile,
 )
 
@@ -288,4 +290,93 @@ class VictimProfileAdmin(admin.ModelAdmin):
 
     ordering = (
         "anonymous_code",
+    )
+
+@admin.register(EmergencyAccessInvitation)
+class EmergencyAccessInvitationAdmin(admin.ModelAdmin):
+    list_display = (
+        "token",
+        "case",
+        "invitee_email",
+        "sponsor",
+        "status",
+        "expires_at",
+        "accepted_by",
+        "created_at",
+    )
+
+    list_filter = (
+        "status",
+        "expires_at",
+        "created_at",
+    )
+
+    search_fields = (
+        "token",
+        "case__reference_code",
+        "case__title",
+        "invitee_email",
+        "sponsor__email",
+        "accepted_by__email",
+    )
+
+    autocomplete_fields = (
+        "case",
+        "sponsor",
+        "accepted_by",
+    )
+
+    readonly_fields = (
+        "token",
+        "accepted_at",
+        "revoked_at",
+        "created_at",
+    )
+
+    ordering = (
+        "-created_at",
+    )
+
+
+@admin.register(CaseAccessGrant)
+class CaseAccessGrantAdmin(admin.ModelAdmin):
+    list_display = (
+        "user",
+        "case",
+        "access_level",
+        "is_active",
+        "expires_at",
+        "granted_by",
+        "created_at",
+    )
+
+    list_filter = (
+        "access_level",
+        "is_active",
+        "expires_at",
+    )
+
+    search_fields = (
+        "user__email",
+        "case__reference_code",
+        "case__title",
+        "invitation__token",
+        "granted_by__email",
+    )
+
+    autocomplete_fields = (
+        "case",
+        "user",
+        "invitation",
+        "granted_by",
+        "revoked_by",
+    )
+
+    readonly_fields = (
+        "created_at",
+        "revoked_at",
+    )
+
+    ordering = (
+        "-created_at",
     )

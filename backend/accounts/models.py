@@ -23,14 +23,23 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("is_active", True)
         extra_fields.setdefault("role", "admin")
+        extra_fields.setdefault("access_status", "approved")
 
         if extra_fields.get("is_staff") is not True:
-            raise ValueError("A superuser must have is_staff=True.")
+            raise ValueError(
+                "A superuser must have is_staff=True."
+            )
 
         if extra_fields.get("is_superuser") is not True:
-            raise ValueError("A superuser must have is_superuser=True.")
+            raise ValueError(
+                "A superuser must have is_superuser=True."
+            )
 
-        return self.create_user(email, password, **extra_fields)
+        return self.create_user(
+            email,
+            password,
+            **extra_fields,
+        )
 
 
 class User(AbstractUser):
@@ -41,24 +50,68 @@ class User(AbstractUser):
         GOVERNMENT = "government", "Government Authority"
         ADMIN = "admin", "Administrator"
 
+    class AccessStatus(models.TextChoices):
+        PENDING = "pending", "Pending approval"
+        APPROVED = "approved", "Approved"
+        EMERGENCY = "emergency", "Emergency limited access"
+        REJECTED = "rejected", "Rejected"
+
     username = None
-    email = models.EmailField(unique=True)
-    full_name = models.CharField(max_length=150)
-    phone = models.CharField(max_length=20, blank=True)
-    organization = models.CharField(max_length=150, blank=True)
+
+    email = models.EmailField(
+        unique=True,
+    )
+    full_name = models.CharField(
+        max_length=150,
+    )
+    phone = models.CharField(
+        max_length=20,
+        blank=True,
+    )
+    organization = models.CharField(
+        max_length=150,
+        blank=True,
+    )
     role = models.CharField(
         max_length=20,
         choices=Role.choices,
         default=Role.NGO,
     )
+    access_status = models.CharField(
+        max_length=20,
+        choices=AccessStatus.choices,
+        default=AccessStatus.APPROVED,
+        db_index=True,
+    )
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["full_name"]
+    REQUIRED_FIELDS = [
+        "full_name",
+    ]
 
     objects = UserManager()
 
     class Meta:
-        ordering = ["full_name", "email"]
+        ordering = [
+            "full_name",
+            "email",
+        ]
+
+    @property
+    def is_fully_approved(self):
+        return (
+            self.is_active
+            and self.access_status
+            == self.AccessStatus.APPROVED
+        )
+
+    @property
+    def has_emergency_access(self):
+        return (
+            self.is_active
+            and self.access_status
+            == self.AccessStatus.EMERGENCY
+        )
 
     def __str__(self):
         return f"{self.full_name} ({self.email})"

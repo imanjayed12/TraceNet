@@ -1,13 +1,16 @@
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import generics
 from rest_framework.exceptions import PermissionDenied
 
 from .models import (
     Case,
+    CaseAccessGrant,
     CaseRoute,
     CaseUpdate,
     VictimProfile,
 )
+from .emergency_case_serializers import EmergencyCaseSerializer
 from .permissions import (
     CanManageCaseRoutes,
     CanManageCases,
@@ -25,7 +28,34 @@ from .serializers import (
 def visible_cases_for(user):
     queryset = Case.objects.all()
 
-    if user.is_superuser or user.role in {
+    if not user or not user.is_authenticated:
+        return queryset.none()
+
+    if user.is_superuser:
+        return queryset
+
+    if not user.is_active:
+        return queryset.none()
+
+    access_status = getattr(
+        user,
+        "access_status",
+        None,
+    )
+
+    if access_status == "emergency":
+        now = timezone.now()
+
+        return queryset.filter(
+            access_grants__user=user,
+            access_grants__is_active=True,
+            access_grants__expires_at__gt=now,
+        ).distinct()
+
+    if access_status != "approved":
+        return queryset.none()
+
+    if user.role in {
         "admin",
         "police",
         "government",
@@ -58,6 +88,17 @@ def ensure_case_is_visible(user, case):
 class CaseListCreateView(generics.ListCreateAPIView):
     serializer_class = CaseSerializer
     permission_classes = (CanManageCases,)
+    def get_serializer_class(self):
+        user = self.request.user
+
+        if (
+            user.is_authenticated
+            and getattr(user, "access_status", None)
+            == "emergency"
+        ):
+            return EmergencyCaseSerializer
+
+        return CaseSerializer
 
     def get_queryset(self):
         queryset = visible_cases_for(
@@ -137,6 +178,17 @@ class CaseDetailView(
     serializer_class = CaseSerializer
     permission_classes = (CanManageCases,)
     lookup_field = "reference_code"
+    def get_serializer_class(self):
+        user = self.request.user
+
+        if (
+            user.is_authenticated
+            and getattr(user, "access_status", None)
+            == "emergency"
+        ):
+            return EmergencyCaseSerializer
+
+        return CaseSerializer
 
     def get_queryset(self):
         return visible_cases_for(

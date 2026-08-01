@@ -100,6 +100,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(
             password=password,
             is_active=False,
+            access_status=User.AccessStatus.PENDING,
             **validated_data,
         )
 
