@@ -2,6 +2,9 @@ from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from audit.models import AuditLog
+from audit.services import record_audit_event
+
 from .registration_serializers import RegisterSerializer
 
 
@@ -19,6 +22,24 @@ class RegisterView(generics.CreateAPIView):
         )
         user = serializer.save()
 
+        record_audit_event(
+            action=AuditLog.Action.CREATE,
+            request=request,
+            actor=user,
+            actor_email=user.email,
+            resource_type="user_registration",
+            resource_id=user.pk,
+            resource_label="Registration submitted",
+            status_code=status.HTTP_201_CREATED,
+            success=True,
+            metadata={
+                "role": user.role,
+                "organization": user.organization,
+                "access_status": user.access_status,
+                "is_active": user.is_active,
+            },
+        )
+
         return Response(
             {
                 "detail": (
@@ -32,7 +53,7 @@ class RegisterView(generics.CreateAPIView):
                     "role": user.role,
                     "organization": user.organization,
                     "is_active": user.is_active,
-                    "approval_status": "pending",
+                    "approval_status": user.access_status,
                 },
             },
             status=status.HTTP_201_CREATED,
