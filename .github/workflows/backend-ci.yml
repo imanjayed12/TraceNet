@@ -57,4 +57,4 @@ jobs:
         run: python manage.py makemigrations --check --dry-run --settings=config.settings_test
 
       - name: Run automated tests
-        run: python manage.py test --settings=config.settings_test -v 2
+        run: python manage.py test cases.tests --settings=config.settings_test -v 2
