@@ -4,6 +4,7 @@ import {
   Suspense,
   useEffect,
 } from 'react'
+import type { ReactNode } from 'react'
 import {
   Route,
   Switch,
@@ -40,6 +41,19 @@ const DashboardPage = lazy(
 )
 
 
+const CasesPage = lazy(
+  async () => {
+    const module = await import(
+      './pages/cases/CasesPage'
+    )
+
+    return {
+      default: module.CasesPage,
+    }
+  },
+)
+
+
 function LoadingScreen() {
   return (
     <main className="grid min-h-screen place-items-center bg-[#f4f7fb]">
@@ -55,7 +69,11 @@ function LoadingScreen() {
 }
 
 
-function ProtectedDashboard() {
+function ProtectedPage({
+  children,
+}: {
+  children: ReactNode
+}) {
   const [, navigate] = useLocation()
 
   const {
@@ -84,7 +102,25 @@ function ProtectedDashboard() {
     return null
   }
 
-  return <DashboardPage />
+  return children
+}
+
+
+function ProtectedDashboard() {
+  return (
+    <ProtectedPage>
+      <DashboardPage />
+    </ProtectedPage>
+  )
+}
+
+
+function ProtectedCases() {
+  return (
+    <ProtectedPage>
+      <CasesPage />
+    </ProtectedPage>
+  )
 }
 
 
@@ -103,6 +139,11 @@ export default function App() {
         <Route
           path="/dashboard"
           component={ProtectedDashboard}
+        />
+
+        <Route
+          path="/cases"
+          component={ProtectedCases}
         />
 
         <Route component={LoginPage} />
