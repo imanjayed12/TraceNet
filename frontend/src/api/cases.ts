@@ -5,6 +5,14 @@ import type {
   CaseSummary,
 } from '../types/dashboard'
 
+import type {
+  CaseDetail,
+  CaseDetailBundle,
+  CaseRouteLink,
+  CaseUpdate,
+  VictimProfile,
+} from '../types/cases'
+
 
 export interface CaseFilters {
   search?: string
@@ -16,9 +24,9 @@ export interface CaseFilters {
 }
 
 
-function unwrapCases(
-  collection: ApiCollection<CaseSummary>,
-): CaseSummary[] {
+function unwrapCollection<T>(
+  collection: ApiCollection<T>,
+): T[] {
   return Array.isArray(collection)
     ? collection
     : collection.results
@@ -59,16 +67,78 @@ export const casesApi = {
       },
     )
 
-    return unwrapCases(response.data)
+    return unwrapCollection(response.data)
   },
 
   async getCase(
     referenceCode: string,
-  ): Promise<CaseSummary> {
-    const response = await apiClient.get<CaseSummary>(
+  ): Promise<CaseDetail> {
+    const response = await apiClient.get<CaseDetail>(
       `/cases/${encodeURIComponent(referenceCode)}/`,
     )
 
     return response.data
+  },
+
+  async getCaseDetailBundle(
+    referenceCode: string,
+  ): Promise<CaseDetailBundle> {
+    const encodedReference = encodeURIComponent(
+      referenceCode,
+    )
+
+    const [
+      caseResponse,
+      updatesResponse,
+      routeLinksResponse,
+      victimsResponse,
+    ] = await Promise.all([
+      apiClient.get<CaseDetail>(
+        `/cases/${encodedReference}/`,
+      ),
+
+      apiClient.get<ApiCollection<CaseUpdate>>(
+        '/cases/updates/',
+        {
+          params: {
+            case: referenceCode,
+          },
+        },
+      ),
+
+      apiClient.get<ApiCollection<CaseRouteLink>>(
+        '/cases/route-links/',
+        {
+          params: {
+            case: referenceCode,
+          },
+        },
+      ),
+
+      apiClient.get<ApiCollection<VictimProfile>>(
+        '/cases/victims/',
+        {
+          params: {
+            case: referenceCode,
+          },
+        },
+      ),
+    ])
+
+    return {
+      caseRecord: caseResponse.data,
+
+      updates: unwrapCollection(
+        updatesResponse.data,
+      ),
+
+      routeLinks: unwrapCollection(
+        routeLinksResponse.data,
+      ),
+
+      victims: unwrapCollection(
+        victimsResponse.data,
+      ),
+    }
   },
 }

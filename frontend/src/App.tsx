@@ -54,6 +54,19 @@ const CasesPage = lazy(
 )
 
 
+const CaseDetailPage = lazy(
+  async () => {
+    const module = await import(
+      './pages/cases/CaseDetailPage'
+    )
+
+    return {
+      default: module.CaseDetailPage,
+    }
+  },
+)
+
+
 function LoadingScreen() {
   return (
     <main className="grid min-h-screen place-items-center bg-[#f4f7fb]">
@@ -124,6 +137,15 @@ function ProtectedCases() {
 }
 
 
+function ProtectedCaseDetail() {
+  return (
+    <ProtectedPage>
+      <CaseDetailPage />
+    </ProtectedPage>
+  )
+}
+
+
 export default function App() {
   return (
     <Suspense fallback={<LoadingScreen />}>
@@ -139,6 +161,11 @@ export default function App() {
         <Route
           path="/dashboard"
           component={ProtectedDashboard}
+        />
+
+        <Route
+          path="/cases/:referenceCode"
+          component={ProtectedCaseDetail}
         />
 
         <Route

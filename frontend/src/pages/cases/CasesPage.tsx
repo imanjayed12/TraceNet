@@ -31,7 +31,7 @@ import { AppShell } from '../../components/layout/AppShell'
 import type {
   CaseSummary,
 } from '../../types/dashboard'
-
+import { Link } from 'wouter'
 
 const statusOptions = [
   {
@@ -368,7 +368,7 @@ export function CasesPage() {
                   updateFilter(
                     'is_verified',
                     value,
-                )
+                    )
                 }}
               />
             </div>
@@ -629,14 +629,17 @@ function CaseTable({
                   </div>
 
                   <div>
-                    <p className="max-w-xs font-semibold text-slate-900">
-                      {caseItem.title}
-                    </p>
+                    <Link
+                    href={`/cases/${caseItem.reference_code}`}
+                    className="max-w-xs font-semibold !text-slate-900 transition hover:!text-teal-700"
+  >
+                     {caseItem.title}
+                    </Link>
 
                     <p className="mt-1 font-mono text-xs text-slate-500">
-                      {caseItem.reference_code}
+                    {caseItem.reference_code}
                     </p>
-                  </div>
+                    </div>
                 </div>
               </td>
 
