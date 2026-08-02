@@ -61,7 +61,7 @@ const navigationItems: NavigationItem[] = [
     label: 'Intelligence map',
     path: '/map',
     icon: Map,
-    available: false,
+    available: true,
   },
   {
     key: 'routes',
