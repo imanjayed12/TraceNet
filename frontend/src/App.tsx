@@ -79,6 +79,17 @@ const IntelligenceMapPage = lazy(
   },
 )
 
+const HotspotsPage = lazy(
+  async () => {
+    const module = await import(
+      './pages/hotspots/HotspotsPage'
+    )
+
+    return {
+      default: module.HotspotsPage,
+    }
+  },
+)
 
 const RoutesPage = lazy(
   async () => {
@@ -180,6 +191,13 @@ function ProtectedIntelligenceMap() {
   )
 }
 
+function ProtectedHotspots() {
+  return (
+    <ProtectedPage>
+      <HotspotsPage />
+    </ProtectedPage>
+  )
+}
 
 function ProtectedRoutes() {
   return (
@@ -227,6 +245,10 @@ export default function App() {
           component={ProtectedRoutes}
         />
 
+        <Route
+          path="/hotspots"
+          component={ProtectedHotspots}
+        />
         <Route component={LoginPage} />
       </Switch>
     </Suspense>

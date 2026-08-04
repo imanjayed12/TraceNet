@@ -75,7 +75,7 @@ const navigationItems: NavigationItem[] = [
     label: 'Hotspots',
     path: '/hotspots',
     icon: MapPinned,
-    available: false,
+    available: true,
   },
   {
     key: 'alerts',
