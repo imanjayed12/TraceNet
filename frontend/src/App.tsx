@@ -80,6 +80,19 @@ const IntelligenceMapPage = lazy(
 )
 
 
+const RoutesPage = lazy(
+  async () => {
+    const module = await import(
+      './pages/routes/RoutesPage'
+    )
+
+    return {
+      default: module.RoutesPage,
+    }
+  },
+)
+
+
 function LoadingScreen() {
   return (
     <main className="grid min-h-screen place-items-center bg-[#f4f7fb]">
@@ -168,6 +181,15 @@ function ProtectedIntelligenceMap() {
 }
 
 
+function ProtectedRoutes() {
+  return (
+    <ProtectedPage>
+      <RoutesPage />
+    </ProtectedPage>
+  )
+}
+
+
 export default function App() {
   return (
     <Suspense fallback={<LoadingScreen />}>
@@ -198,6 +220,11 @@ export default function App() {
         <Route
           path="/map"
           component={ProtectedIntelligenceMap}
+        />
+
+        <Route
+          path="/routes"
+          component={ProtectedRoutes}
         />
 
         <Route component={LoginPage} />

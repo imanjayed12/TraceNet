@@ -64,12 +64,12 @@ const navigationItems: NavigationItem[] = [
     available: true,
   },
   {
-    key: 'routes',
-    label: 'Routes',
-    path: '/routes',
-    icon: RouteIcon,
-    available: false,
-  },
+  key: 'routes',
+  label: 'Routes',
+  path: '/routes',
+  icon: RouteIcon,
+  available: true,
+},
   {
     key: 'hotspots',
     label: 'Hotspots',
