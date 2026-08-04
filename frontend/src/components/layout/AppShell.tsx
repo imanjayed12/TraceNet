@@ -82,7 +82,7 @@ const navigationItems: NavigationItem[] = [
     label: 'Alerts',
     path: '/alerts',
     icon: Bell,
-    available: false,
+    available: true,
   },
   {
     key: 'reports',
