@@ -126,6 +126,17 @@ const RoutesPage = lazy(
     }
   },
 )
+const AuditPage = lazy(
+  async () => {
+    const module = await import(
+      './pages/audit/AuditPage'
+    )
+
+    return {
+      default: module.AuditPage,
+    }
+  },
+)
 
 
 function LoadingScreen() {
@@ -247,6 +258,13 @@ function ProtectedRoutes() {
   )
 }
 
+function ProtectedAudit() {
+  return (
+    <ProtectedPage>
+      <AuditPage />
+    </ProtectedPage>
+  )
+}
 
 export default function App() {
   return (
@@ -298,6 +316,11 @@ export default function App() {
         <Route
           path="/reports"
           component={ProtectedReports}
+        />
+
+        <Route
+          path="/audit"
+          component={ProtectedAudit}
         />
         <Route component={LoginPage} />
       </Switch>

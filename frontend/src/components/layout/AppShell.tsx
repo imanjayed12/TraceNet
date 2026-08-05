@@ -8,6 +8,7 @@ import {
   MapPinned,
   Menu,
   Route as RouteIcon,
+  ScrollText,
   ShieldCheck,
   Users,
   X,
@@ -30,6 +31,7 @@ export type NavigationKey =
   | 'hotspots'
   | 'alerts'
   | 'reports'
+  | 'audit'
 
 
 interface NavigationItem {
@@ -91,6 +93,13 @@ const navigationItems: NavigationItem[] = [
     icon: FileBarChart,
     available: true,
   },
+  {
+  key: 'audit',
+  label: 'Audit & compliance',
+  path: '/audit',
+  icon: ScrollText,
+  available: true,
+},
 ]
 
 
@@ -297,6 +306,12 @@ function Sidebar({
 
           <div className="mt-3 space-y-1">
             {navigationItems.map((item) => {
+              if (
+                  item.key === 'audit'
+                  && role !== 'admin'
+                  ) {
+                    return null
+                }
               const Icon = item.icon
               const isActive = (
                 item.key === activeNavigation

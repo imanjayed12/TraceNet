@@ -133,4 +133,8 @@ class AuditLog(models.Model):
     def __str__(self):
         actor = self.actor_email or "anonymous"
         resource = self.resource_label or self.resource_type
-        return f"{actor} — {self.get_action_display()} — {resource}"
+        return (
+            f"{actor} - "
+            f"{self.get_action_display()} - "
+            f"{resource}"
+        )
