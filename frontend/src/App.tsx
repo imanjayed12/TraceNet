@@ -138,6 +138,17 @@ const AuditPage = lazy(
   },
 )
 
+const UsersPage = lazy(
+  async () => {
+    const module = await import(
+      './pages/users/UsersPage'
+    )
+
+    return {
+      default: module.UsersPage,
+    }
+  },
+)
 
 function LoadingScreen() {
   return (
@@ -266,6 +277,14 @@ function ProtectedAudit() {
   )
 }
 
+function ProtectedUsers() {
+  return (
+    <ProtectedPage>
+      <UsersPage />
+    </ProtectedPage>
+  )
+}
+
 export default function App() {
   return (
     <Suspense fallback={<LoadingScreen />}>
@@ -321,6 +340,11 @@ export default function App() {
         <Route
           path="/audit"
           component={ProtectedAudit}
+        />
+
+        <Route
+          path="/users"
+          component={ProtectedUsers}
         />
         <Route component={LoginPage} />
       </Switch>

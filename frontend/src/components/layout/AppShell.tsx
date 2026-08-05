@@ -32,6 +32,7 @@ export type NavigationKey =
   | 'alerts'
   | 'reports'
   | 'audit'
+  | 'users'
 
 
 interface NavigationItem {
@@ -92,6 +93,13 @@ const navigationItems: NavigationItem[] = [
     path: '/reports',
     icon: FileBarChart,
     available: true,
+  },
+  {
+  key: 'users',
+  label: 'User management',
+  path: '/users',
+  icon: Users,
+  available: true,
   },
   {
   key: 'audit',
@@ -306,12 +314,17 @@ function Sidebar({
 
           <div className="mt-3 space-y-1">
             {navigationItems.map((item) => {
-              if (
-                  item.key === 'audit'
-                  && role !== 'admin'
-                  ) {
-                    return null
-                }
+              const isAdminOnlyItem = (
+              item.key === 'users'
+              || item.key === 'audit'
+              )
+
+            if (
+                isAdminOnlyItem
+                && role !== 'admin'
+            ) {
+              return null
+            }
               const Icon = item.icon
               const isActive = (
                 item.key === activeNavigation
