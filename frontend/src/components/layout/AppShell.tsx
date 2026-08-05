@@ -1,26 +1,44 @@
 import {
   Bell,
+  Check,
+  ChevronRight,
+  CircleAlert,
   FileBarChart,
   FileText,
   LayoutDashboard,
+  LoaderCircle,
   LogOut,
-  Map,
+  Map as MapIcon,
   MapPinned,
   Menu,
+  RefreshCw,
   Route as RouteIcon,
   ScrollText,
   ShieldCheck,
   Users,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
-import type { ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import type {
+  ReactNode,
+} from 'react'
 import {
   Link,
   useLocation,
 } from 'wouter'
 
+import { alertsApi } from '../../api/alerts'
 import { useAuth } from '../../hooks/useAuth'
+import type {
+  AlertInboxItem,
+  AlertSeverity,
+} from '../../types/alerts'
 
 
 export type NavigationKey =
@@ -63,16 +81,16 @@ const navigationItems: NavigationItem[] = [
     key: 'map',
     label: 'Intelligence map',
     path: '/map',
-    icon: Map,
+    icon: MapIcon,
     available: true,
   },
   {
-  key: 'routes',
-  label: 'Routes',
-  path: '/routes',
-  icon: RouteIcon,
-  available: true,
-},
+    key: 'routes',
+    label: 'Routes',
+    path: '/routes',
+    icon: RouteIcon,
+    available: true,
+  },
   {
     key: 'hotspots',
     label: 'Hotspots',
@@ -95,20 +113,51 @@ const navigationItems: NavigationItem[] = [
     available: true,
   },
   {
-  key: 'users',
-  label: 'User management',
-  path: '/users',
-  icon: Users,
-  available: true,
+    key: 'users',
+    label: 'User management',
+    path: '/users',
+    icon: Users,
+    available: true,
   },
   {
-  key: 'audit',
-  label: 'Audit & compliance',
-  path: '/audit',
-  icon: ScrollText,
-  available: true,
-},
+    key: 'audit',
+    label: 'Audit & compliance',
+    path: '/audit',
+    icon: ScrollText,
+    available: true,
+  },
 ]
+
+
+const severityStyles: Record<
+  AlertSeverity,
+  {
+    dot: string
+    badge: string
+    label: string
+  }
+> = {
+  info: {
+    dot: 'bg-blue-500',
+    badge: 'bg-blue-50 text-blue-700',
+    label: 'Info',
+  },
+  warning: {
+    dot: 'bg-amber-500',
+    badge: 'bg-amber-50 text-amber-700',
+    label: 'Warning',
+  },
+  high: {
+    dot: 'bg-orange-500',
+    badge: 'bg-orange-50 text-orange-700',
+    label: 'High',
+  },
+  critical: {
+    dot: 'bg-red-600',
+    badge: 'bg-red-50 text-red-700',
+    label: 'Critical',
+  },
+}
 
 
 function formatRole(role: string): string {
@@ -118,6 +167,59 @@ function formatRole(role: string): string {
       /\b\w/g,
       (character) => character.toUpperCase(),
     )
+}
+
+
+function formatAlertTime(value: string): string {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Time unavailable'
+  }
+
+  const elapsedSeconds = Math.max(
+    0,
+    Math.floor(
+      (Date.now() - date.getTime()) / 1000,
+    ),
+  )
+
+  if (elapsedSeconds < 60) {
+    return 'Just now'
+  }
+
+  const elapsedMinutes = Math.floor(
+    elapsedSeconds / 60,
+  )
+
+  if (elapsedMinutes < 60) {
+    return `${elapsedMinutes}m ago`
+  }
+
+  const elapsedHours = Math.floor(
+    elapsedMinutes / 60,
+  )
+
+  if (elapsedHours < 24) {
+    return `${elapsedHours}h ago`
+  }
+
+  const elapsedDays = Math.floor(
+    elapsedHours / 24,
+  )
+
+  if (elapsedDays < 7) {
+    return `${elapsedDays}d ago`
+  }
+
+  return new Intl.DateTimeFormat(
+    'en-GB',
+    {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    },
+  ).format(date)
 }
 
 
@@ -162,7 +264,7 @@ export function AppShell({
       <div className="lg:pl-72">
         <TopBar
           userName={user?.full_name ?? 'User'}
-          unreadCount={unreadAlertCount}
+          fallbackUnreadCount={unreadAlertCount}
           onOpenMenu={() => setMobileMenuOpen(true)}
         />
 
@@ -175,11 +277,11 @@ export function AppShell({
 
 function TopBar({
   userName,
-  unreadCount,
+  fallbackUnreadCount,
   onOpenMenu,
 }: {
   userName: string
-  unreadCount: number
+  fallbackUnreadCount: number
   onOpenMenu: () => void
 }) {
   return (
@@ -205,21 +307,9 @@ function TopBar({
         </div>
 
         <div className="ml-auto flex items-center gap-3">
-          <button
-            type="button"
-            className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600"
-            aria-label="Alert inbox"
-          >
-            <Bell size={19} />
-
-            {unreadCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
-                {unreadCount > 99
-                  ? '99+'
-                  : unreadCount}
-              </span>
-            )}
-          </button>
+          <NotificationCenter
+            fallbackUnreadCount={fallbackUnreadCount}
+          />
 
           <div className="hidden items-center gap-3 border-l border-slate-200 pl-3 sm:flex">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100 font-bold text-teal-800">
@@ -239,6 +329,432 @@ function TopBar({
         </div>
       </div>
     </header>
+  )
+}
+
+
+function NotificationCenter({
+  fallbackUnreadCount,
+}: {
+  fallbackUnreadCount: number
+}) {
+  const [, navigate] = useLocation()
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const [isOpen, setIsOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isMarkingAllRead, setIsMarkingAllRead] =
+    useState(false)
+  const [loadError, setLoadError] = useState(false)
+  const [inbox, setInbox] = useState<AlertInboxItem[]>([])
+
+  const loadInbox = useCallback(async (
+    showLoading = false,
+  ) => {
+    if (showLoading) {
+      setIsLoading(true)
+    }
+
+    try {
+      const items = await alertsApi.getInbox()
+      const sortedItems = [...items].sort(
+        (first, second) => (
+          new Date(
+            second.alert_created_at,
+          ).getTime()
+          - new Date(
+            first.alert_created_at,
+          ).getTime()
+        ),
+      )
+
+      setInbox(sortedItems)
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadInbox(true)
+
+    const intervalId = window.setInterval(
+      () => {
+        if (document.visibilityState === 'visible') {
+          void loadInbox()
+        }
+      },
+      60_000,
+    )
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void loadInbox()
+      }
+    }
+
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange,
+    )
+
+    return () => {
+      window.clearInterval(intervalId)
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange,
+      )
+    }
+  }, [loadInbox])
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined
+    }
+
+    const handlePointerDown = (
+      event: PointerEvent,
+    ) => {
+      if (
+        containerRef.current
+        && !containerRef.current.contains(
+          event.target as Node,
+        )
+      ) {
+        setIsOpen(false)
+      }
+    }
+
+    const handleKeyDown = (
+      event: KeyboardEvent,
+    ) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener(
+      'pointerdown',
+      handlePointerDown,
+    )
+    document.addEventListener(
+      'keydown',
+      handleKeyDown,
+    )
+
+    return () => {
+      document.removeEventListener(
+        'pointerdown',
+        handlePointerDown,
+      )
+      document.removeEventListener(
+        'keydown',
+        handleKeyDown,
+      )
+    }
+  }, [isOpen])
+
+  const unreadItems = useMemo(
+    () => inbox.filter((item) => !item.is_read),
+    [inbox],
+  )
+
+  const unreadCount = isLoading && inbox.length === 0
+    ? fallbackUnreadCount
+    : unreadItems.length
+
+  const recentItems = useMemo(
+    () => inbox.slice(0, 5),
+    [inbox],
+  )
+
+  const handleOpenAlert = async (
+    item: AlertInboxItem,
+  ) => {
+    if (!item.is_read) {
+      try {
+        const response = await alertsApi.markRead(
+          item.id,
+        )
+
+        setInbox((current) => current.map(
+          (currentItem) => (
+            currentItem.id === item.id
+              ? response.alert
+              : currentItem
+          ),
+        ))
+      } catch {
+        // The Alerts page can retry the action.
+      }
+    }
+
+    setIsOpen(false)
+    navigate('/alerts')
+  }
+
+  const handleMarkAllRead = async () => {
+    if (
+      unreadItems.length === 0
+      || isMarkingAllRead
+    ) {
+      return
+    }
+
+    setIsMarkingAllRead(true)
+
+    try {
+      const responses = await Promise.all(
+        unreadItems.map((item) => (
+          alertsApi.markRead(item.id)
+        )),
+      )
+      const updatedItems = new Map<
+        number,
+        AlertInboxItem
+      >(
+        responses.map(
+          (response): [number, AlertInboxItem] => [
+            response.alert.id,
+            response.alert,
+          ],
+        ),
+      )
+
+      setInbox((current) => current.map(
+        (item) => updatedItems.get(item.id) ?? item,
+      ))
+      setLoadError(false)
+    } catch {
+      setLoadError(true)
+      void loadInbox()
+    } finally {
+      setIsMarkingAllRead(false)
+    }
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative"
+    >
+      <button
+        type="button"
+        onClick={() => {
+          const nextOpenState = !isOpen
+          setIsOpen(nextOpenState)
+
+          if (nextOpenState) {
+            void loadInbox()
+          }
+        }}
+        className={`relative flex h-10 w-10 items-center justify-center rounded-xl border bg-white transition ${
+          isOpen
+            ? 'border-teal-300 text-teal-700 ring-4 ring-teal-500/10'
+            : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+        }`}
+        aria-label={
+          unreadCount > 0
+            ? `Alert inbox, ${unreadCount} unread`
+            : 'Alert inbox'
+        }
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
+      >
+        <Bell size={19} />
+
+        {unreadCount > 0 && (
+          <span className="absolute -right-1.5 -top-1.5 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white ring-2 ring-white">
+            {unreadCount > 99
+              ? '99+'
+              : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div
+          role="dialog"
+          aria-label="Recent alert notifications"
+          className="fixed left-3 right-3 top-16 z-50 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-[26rem]"
+        >
+          <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-bold text-slate-950">
+                  Notifications
+                </h2>
+
+                {unreadCount > 0 && (
+                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700">
+                    {unreadCount} unread
+                  </span>
+                )}
+              </div>
+
+              <p className="mt-1 text-xs text-slate-500">
+                Secure operational alert inbox
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                void loadInbox(true)
+              }}
+              disabled={isLoading}
+              className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700 disabled:opacity-50"
+              aria-label="Refresh notifications"
+            >
+              <RefreshCw
+                size={16}
+                className={
+                  isLoading
+                    ? 'animate-spin'
+                    : ''
+                }
+              />
+            </button>
+          </div>
+
+          {loadError && (
+            <div className="flex items-center gap-2 border-b border-red-100 bg-red-50 px-5 py-2.5 text-xs font-medium text-red-700">
+              <CircleAlert size={15} />
+              Notifications could not be refreshed.
+            </div>
+          )}
+
+          <div className="max-h-[min(28rem,calc(100vh-10rem))] overflow-y-auto">
+            {isLoading && inbox.length === 0 ? (
+              <div className="grid min-h-48 place-items-center px-5 py-8 text-center">
+                <div>
+                  <LoaderCircle className="mx-auto animate-spin text-teal-600" />
+                  <p className="mt-3 text-sm text-slate-500">
+                    Loading secure alerts...
+                  </p>
+                </div>
+              </div>
+            ) : recentItems.length === 0 ? (
+              <div className="grid min-h-48 place-items-center px-6 py-8 text-center">
+                <div>
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                    <Check size={22} />
+                  </div>
+                  <p className="mt-3 font-semibold text-slate-900">
+                    Inbox is clear
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    No alert deliveries are available.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {recentItems.map((item) => {
+                  const severity = severityStyles[
+                    item.severity
+                  ]
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        void handleOpenAlert(item)
+                      }}
+                      className={`relative flex w-full gap-3 px-5 py-4 text-left transition hover:bg-slate-50 ${
+                        item.is_read
+                          ? 'bg-white'
+                          : 'bg-teal-50/45'
+                      }`}
+                    >
+                      {!item.is_read && (
+                        <span className="absolute left-0 top-0 h-full w-1 bg-teal-500" />
+                      )}
+
+                      <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${severity.dot}`} />
+
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-start justify-between gap-3">
+                          <span className={`line-clamp-1 text-sm text-slate-950 ${
+                            item.is_read
+                              ? 'font-semibold'
+                              : 'font-bold'
+                          }`}>
+                            {item.title}
+                          </span>
+
+                          <span className="shrink-0 text-[11px] text-slate-400">
+                            {formatAlertTime(
+                              item.alert_created_at,
+                            )}
+                          </span>
+                        </span>
+
+                        <span className="mt-1 line-clamp-2 text-xs leading-5 text-slate-600">
+                          {item.message}
+                        </span>
+
+                        <span className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${severity.badge}`}>
+                            {severity.label}
+                          </span>
+
+                          {item.is_acknowledged && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
+                              <Check size={12} />
+                              Acknowledged
+                            </span>
+                          )}
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3">
+            <button
+              type="button"
+              onClick={() => {
+                void handleMarkAllRead()
+              }}
+              disabled={
+                unreadItems.length === 0
+                || isMarkingAllRead
+              }
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-700 transition hover:text-teal-800 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              {isMarkingAllRead ? (
+                <LoaderCircle
+                  size={14}
+                  className="animate-spin"
+                />
+              ) : (
+                <Check size={14} />
+              )}
+              Mark all as read
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false)
+                navigate('/alerts')
+              }}
+              className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 transition hover:text-slate-950"
+            >
+              View all alerts
+              <ChevronRight size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -315,16 +831,17 @@ function Sidebar({
           <div className="mt-3 space-y-1">
             {navigationItems.map((item) => {
               const isAdminOnlyItem = (
-              item.key === 'users'
-              || item.key === 'audit'
+                item.key === 'users'
+                || item.key === 'audit'
               )
 
-            if (
+              if (
                 isAdminOnlyItem
                 && role !== 'admin'
-            ) {
-              return null
-            }
+              ) {
+                return null
+              }
+
               const Icon = item.icon
               const isActive = (
                 item.key === activeNavigation
