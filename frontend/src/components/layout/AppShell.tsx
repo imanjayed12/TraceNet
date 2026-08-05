@@ -89,7 +89,7 @@ const navigationItems: NavigationItem[] = [
     label: 'Reports',
     path: '/reports',
     icon: FileBarChart,
-    available: false,
+    available: true,
   },
 ]
 

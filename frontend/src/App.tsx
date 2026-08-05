@@ -103,6 +103,18 @@ const AlertsPage = lazy(
   },
 )
 
+const ReportsPage = lazy(
+  async () => {
+    const module = await import(
+      './pages/reports/ReportsPage'
+    )
+
+    return {
+      default: module.ReportsPage,
+    }
+  },
+)
+
 const RoutesPage = lazy(
   async () => {
     const module = await import(
@@ -219,6 +231,14 @@ function ProtectedAlerts() {
   )
 }
 
+function ProtectedReports() {
+  return (
+    <ProtectedPage>
+      <ReportsPage />
+    </ProtectedPage>
+  )
+}
+
 function ProtectedRoutes() {
   return (
     <ProtectedPage>
@@ -273,6 +293,11 @@ export default function App() {
         <Route
           path="/alerts"
           component={ProtectedAlerts}
+        />
+
+        <Route
+          path="/reports"
+          component={ProtectedReports}
         />
         <Route component={LoginPage} />
       </Switch>
