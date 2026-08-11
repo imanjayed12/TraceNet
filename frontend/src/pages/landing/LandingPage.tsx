@@ -216,18 +216,25 @@ export function LandingPage() {
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={openWorkspace}
-              disabled={isInitializing}
-              className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#075875] px-5 text-sm font-bold text-white shadow-lg shadow-cyan-950/15 transition hover:bg-[#064b64] disabled:cursor-wait disabled:opacity-60"
-            >
-              {isAuthenticated
-                ? 'Open workspace'
-                : 'Get started'}
+        <button
+          type="button"
+          onClick={() => {
+            if (isAuthenticated) {
+              openWorkspace()
+              return
+            }
 
-              <ArrowRight className="h-4 w-4" />
-            </button>
+            navigate('/register')
+          }}
+          disabled={isInitializing}
+          className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#075875] px-5 text-sm font-bold text-white shadow-lg shadow-cyan-950/15 transition hover:bg-[#064b64] disabled:cursor-wait disabled:opacity-60"
+        >
+          {isAuthenticated
+            ? 'Open workspace'
+            : 'Request access'}
+
+          <ArrowRight className="h-4 w-4" />
+        </button>
           </div>
 
           <button
@@ -283,14 +290,21 @@ export function LandingPage() {
 
                 <button
                   type="button"
-                  onClick={openWorkspace}
+                  onClick={() => {
+                    if (isAuthenticated) {
+                      openWorkspace()
+                      return
+                    }
+
+                    navigate('/register')
+                  }}
                   className={`h-11 rounded-xl bg-[#075875] px-4 text-sm font-bold text-white ${
-                            isAuthenticated ? 'col-span-2' : ''
-                        }`}
+                    isAuthenticated ? 'col-span-2' : ''
+                  }`}
                 >
                   {isAuthenticated
                     ? 'Workspace'
-                    : 'Get started'}
+                    : 'Request access'}
                 </button>
               </div>
             </div>
@@ -337,9 +351,9 @@ export function LandingPage() {
                 >
                   {isAuthenticated
                     ? 'Open secure workspace'
-                    : 'Access TraceNet'}
+                    : 'Sign in to TraceNet'}
 
-                  <ArrowRight className="h-5 w-5" />
+                  
                 </button>
 
                 {!isAuthenticated && (
@@ -646,7 +660,7 @@ export function LandingPage() {
                     ? 'Open workspace'
                     : 'Sign in securely'}
 
-                  <ArrowRight className="h-5 w-5" />
+
                 </button>
 
                 {!isAuthenticated && (
