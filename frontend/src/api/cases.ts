@@ -6,11 +6,15 @@ import type {
 } from '../types/dashboard'
 
 import type {
+  CaseCreateData,
   CaseDetail,
   CaseDetailBundle,
+  CaseDistrict,
   CaseRouteLink,
   CaseUpdate,
+  CaseUpdateCreateData,
   VictimProfile,
+  VictimProfileMutationData,
 } from '../types/cases'
 
 
@@ -70,6 +74,7 @@ export const casesApi = {
     return unwrapCollection(response.data)
   },
 
+
   async getCase(
     referenceCode: string,
   ): Promise<CaseDetail> {
@@ -79,6 +84,68 @@ export const casesApi = {
 
     return response.data
   },
+
+
+  async getDistricts(): Promise<CaseDistrict[]> {
+    const response = await apiClient.get<
+      ApiCollection<CaseDistrict>
+    >('/locations/districts/')
+
+    return unwrapCollection(response.data)
+  },
+
+
+  async createCase(
+    data: CaseCreateData,
+  ): Promise<CaseDetail> {
+    const response = await apiClient.post<CaseDetail>(
+      '/cases/',
+      data,
+    )
+
+    return response.data
+  },
+
+
+  async createCaseUpdate(
+    data: CaseUpdateCreateData,
+  ): Promise<CaseUpdate> {
+    const response = await apiClient.post<CaseUpdate>(
+      '/cases/updates/',
+      data,
+    )
+
+    return response.data
+  },
+
+
+  async createVictimProfile(
+    data: VictimProfileMutationData,
+  ): Promise<VictimProfile> {
+    const response = await apiClient.post<VictimProfile>(
+      '/cases/victims/',
+      data,
+    )
+
+    return response.data
+  },
+
+
+  async updateVictimProfile(
+    anonymousCode: string,
+    data: Partial<VictimProfileMutationData>,
+  ): Promise<VictimProfile> {
+    const response =
+      await apiClient.patch<VictimProfile>(
+        `/cases/victims/${
+          encodeURIComponent(anonymousCode)
+        }/`,
+        data,
+      )
+
+    return response.data
+  },
+
 
   async getCaseDetailBundle(
     referenceCode: string,

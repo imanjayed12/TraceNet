@@ -207,12 +207,23 @@ class CaseUpdateListCreateView(
     permission_classes = (CanManageCaseUpdates,)
 
     def get_queryset(self):
+        user = self.request.user
+
         queryset = CaseUpdate.objects.filter(
-            case__in=visible_cases_for(self.request.user),
+            case__in=visible_cases_for(user),
         ).select_related(
             "case",
             "changed_by",
         )
+
+        # NGO users must never receive internal operational notes.
+        if (
+            not user.is_superuser
+            and user.role == "ngo"
+        ):
+            queryset = queryset.filter(
+                is_internal=False,
+            )
 
         case_reference = self.request.query_params.get(
             "case",
@@ -237,14 +248,15 @@ class CaseUpdateListCreateView(
 
     def perform_create(self, serializer):
         case = serializer.validated_data["case"]
+
         ensure_case_is_visible(
             self.request.user,
             case,
         )
+
         serializer.save(
             changed_by=self.request.user,
         )
-
 
 class CaseRouteListCreateView(
     generics.ListCreateAPIView,

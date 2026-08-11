@@ -5,13 +5,19 @@ import {
   FileText,
   Filter,
   MapPin,
+  LoaderCircle,
+  Plus,
   RefreshCw,
   Search,
   ShieldCheck,
   Users,
   X,
 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import {
   useState,
@@ -27,11 +33,44 @@ import type {
   CaseFilters,
 } from '../../api/cases'
 import { AppShell } from '../../components/layout/AppShell'
+import { useAuth } from '../../hooks/useAuth'
 
 import type {
   CaseSummary,
 } from '../../types/dashboard'
+import type {
+  CaseConfidentiality,
+  CaseCreateData,
+  CaseDistrict,
+} from '../../types/cases'
 import { Link } from 'wouter'
+
+
+const caseCreatorRoles = new Set([
+  'admin',
+  'police',
+  'government',
+  'ngo',
+])
+
+
+const confidentialityOptions: Array<{
+  value: CaseConfidentiality
+  label: string
+}> = [
+  {
+    value: 'internal',
+    label: 'Internal',
+  },
+  {
+    value: 'restricted',
+    label: 'Restricted',
+  },
+  {
+    value: 'highly_restricted',
+    label: 'Highly restricted',
+  },
+]
 
 const statusOptions = [
   {
@@ -188,8 +227,81 @@ function priorityClass(priority: string): string {
 }
 
 
+function todayValue(): string {
+  const today = new Date()
+  const timezoneOffset = today.getTimezoneOffset() * 60_000
+
+  return new Date(today.getTime() - timezoneOffset)
+    .toISOString()
+    .slice(0, 10)
+}
+
+
+function createInitialCaseData(): CaseCreateData {
+  return {
+    title: '',
+    summary: '',
+    category: 'suspected',
+    priority: 'medium',
+    confidentiality: 'restricted',
+    incident_district_id: 0,
+    location_description: '',
+    latitude: null,
+    longitude: null,
+    incident_date: todayValue(),
+    total_victims: 1,
+    minor_victims: 0,
+  }
+}
+
+
+function mutationErrorMessage(error: unknown): string {
+  if (
+    typeof error === 'object'
+    && error !== null
+    && 'response' in error
+  ) {
+    const response = (
+      error as {
+        response?: {
+          data?: unknown
+        }
+      }
+    ).response
+
+    const data = response?.data
+
+    if (typeof data === 'string') {
+      return data
+    }
+
+    if (typeof data === 'object' && data !== null) {
+      const firstValue = Object.values(data)[0]
+
+      if (Array.isArray(firstValue)) {
+        return String(firstValue[0])
+      }
+
+      if (typeof firstValue === 'string') {
+        return firstValue
+      }
+    }
+  }
+
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  return 'The case could not be created. Please try again.'
+}
+
+
 export function CasesPage() {
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
   const [searchInput, setSearchInput] = useState('')
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [createdReference, setCreatedReference] = useState('')
   const [filters, setFilters] = useState<CaseFilters>({
     search: '',
     status: '',
@@ -205,6 +317,29 @@ export function CasesPage() {
     ],
     queryFn: () => casesApi.getCases(filters),
   })
+
+  const districtsQuery = useQuery({
+    queryKey: ['case-districts'],
+    queryFn: casesApi.getDistricts,
+    enabled: isCreateOpen,
+  })
+
+  const createCaseMutation = useMutation({
+    mutationFn: casesApi.createCase,
+    onSuccess: async (createdCase) => {
+      setCreatedReference(createdCase.reference_code)
+      setIsCreateOpen(false)
+
+      await queryClient.invalidateQueries({
+        queryKey: ['cases'],
+      })
+    },
+  })
+
+  const canCreateCases = Boolean(
+  user
+  && caseCreatorRoles.has(user.role),
+)
 
   const handleSearch = (
     event: FormEvent<HTMLFormElement>,
@@ -269,25 +404,70 @@ export function CasesPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                void casesQuery.refetch()
-              }}
-              disabled={casesQuery.isFetching}
-              className="inline-flex h-11 items-center justify-center gap-2 self-start rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-teal-300 hover:text-teal-700 disabled:opacity-60 sm:self-auto"
-            >
-              <RefreshCw
-                size={17}
-                className={
-                  casesQuery.isFetching
-                    ? 'animate-spin'
-                    : ''
-                }
-              />
-              Refresh cases
-            </button>
+            <div className="flex flex-wrap gap-3 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  void casesQuery.refetch()
+                }}
+                disabled={casesQuery.isFetching}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-teal-300 hover:text-teal-700 disabled:opacity-60"
+              >
+                <RefreshCw
+                  size={17}
+                  className={
+                    casesQuery.isFetching
+                      ? 'animate-spin'
+                      : ''
+                  }
+                />
+                Refresh cases
+              </button>
+
+              {canCreateCases && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatedReference('')
+                    createCaseMutation.reset()
+                    setIsCreateOpen(true)
+                  }}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#104968] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b3b56]"
+                >
+                  <Plus size={17} />
+                  Add case
+                </button>
+              )}
+            </div>
           </div>
+
+          {createdReference && (
+            <div className="mt-5 flex flex-col gap-3 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 font-semibold">
+                <CheckCircle2 size={18} />
+                New case submitted successfully.
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Link
+                  href={`/cases/${createdReference}`}
+                  className="font-bold !text-emerald-800 underline underline-offset-4"
+                >
+                  View case {createdReference}
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatedReference('')
+                  }}
+                  aria-label="Dismiss success message"
+                >
+                  <X size={17} />
+                </button>
+              </div>
+            </div>
+          )}
 
           <CaseSummaryCards cases={cases} />
 
@@ -428,7 +608,453 @@ export function CasesPage() {
           </section>
         </div>
       </main>
+
+      {isCreateOpen && (
+        <CreateCaseModal
+          districts={districtsQuery.data ?? []}
+          districtsLoading={districtsQuery.isLoading}
+          isNgo={user?.role === 'ngo'}
+          isSaving={createCaseMutation.isPending}
+          error={
+            createCaseMutation.isError
+              ? mutationErrorMessage(createCaseMutation.error)
+              : ''
+          }
+          onClose={() => {
+            if (!createCaseMutation.isPending) {
+              setIsCreateOpen(false)
+            }
+          }}
+          onSubmit={(data) => {
+            createCaseMutation.mutate(data)
+          }}
+        />
+      )}
     </AppShell>
+  )
+}
+
+
+function CreateCaseModal({
+  districts,
+  districtsLoading,
+  isNgo,
+  isSaving,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  districts: CaseDistrict[]
+  districtsLoading: boolean
+  isNgo: boolean
+  isSaving: boolean
+  error: string
+  onClose: () => void
+  onSubmit: (data: CaseCreateData) => void
+}) {
+  const [formData, setFormData] = useState<CaseCreateData>(
+    createInitialCaseData,
+  )
+  const [validationError, setValidationError] = useState('')
+
+  const handleSubmit = (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault()
+    setValidationError('')
+
+    if (!formData.incident_district_id) {
+      setValidationError('Select the incident district.')
+      return
+    }
+
+    if (formData.minor_victims > formData.total_victims) {
+      setValidationError(
+        'Minor victim count cannot exceed total victims.',
+      )
+      return
+    }
+
+    const hasLatitude = Boolean(formData.latitude?.trim())
+    const hasLongitude = Boolean(formData.longitude?.trim())
+
+    if (hasLatitude !== hasLongitude) {
+      setValidationError(
+        'Provide both latitude and longitude, or leave both empty.',
+      )
+      return
+    }
+
+    onSubmit({
+      ...formData,
+      title: formData.title.trim(),
+      summary: formData.summary.trim(),
+      location_description: (
+        formData.location_description.trim()
+      ),
+      latitude: formData.latitude?.trim() || null,
+      longitude: formData.longitude?.trim() || null,
+    })
+  }
+
+  const visibleConfidentialityOptions = isNgo
+    ? confidentialityOptions.filter(
+      (option) => option.value !== 'highly_restricted',
+    )
+    : confidentialityOptions
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] overflow-y-auto bg-slate-950/65 px-4 py-6 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-case-title"
+    >
+      <div className="mx-auto flex min-h-full max-w-3xl items-center justify-center">
+        <div className="w-full overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-teal-700">
+                Protected case submission
+              </p>
+
+              <h2
+                id="create-case-title"
+                className="mt-1 text-xl font-bold text-slate-950"
+              >
+                Add case record
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSaving}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50"
+              aria-label="Close case form"
+            >
+              <X size={19} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <div className="max-h-[calc(100vh-12rem)] space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+              {isNgo && (
+                <div className="rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm leading-6 text-teal-900">
+                  <strong>NGO referral workflow:</strong>{' '}
+                  the case will be submitted as reported and
+                  unverified. An authorized operational officer
+                  will review assignment and verification.
+                </div>
+              )}
+
+              {(validationError || error) && (
+                <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                  <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+                  {validationError || error}
+                </div>
+              )}
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">
+                  Case title
+                </span>
+                <input
+                  required
+                  maxLength={200}
+                  value={formData.title}
+                  onChange={(event) => {
+                    setFormData((current) => ({
+                      ...current,
+                      title: event.target.value,
+                    }))
+                  }}
+                  placeholder="Use an anonymized operational title"
+                  className="h-11 w-full rounded-xl border border-slate-300 px-4 text-sm outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10"
+                />
+              </label>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormSelect
+                  label="Category"
+                  value={formData.category}
+                  options={categoryOptions.slice(1)}
+                  onChange={(value) => {
+                    setFormData((current) => ({
+                      ...current,
+                      category: value as CaseCreateData['category'],
+                    }))
+                  }}
+                />
+
+                <FormSelect
+                  label="Priority"
+                  value={formData.priority}
+                  options={priorityOptions.slice(1)}
+                  onChange={(value) => {
+                    setFormData((current) => ({
+                      ...current,
+                      priority: value as CaseCreateData['priority'],
+                    }))
+                  }}
+                />
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">
+                    Incident district
+                  </span>
+                  <select
+                    required
+                    value={formData.incident_district_id || ''}
+                    disabled={districtsLoading}
+                    onChange={(event) => {
+                      setFormData((current) => ({
+                        ...current,
+                        incident_district_id: Number(
+                          event.target.value,
+                        ),
+                      }))
+                    }}
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10 disabled:bg-slate-100"
+                  >
+                    <option value="">
+                      {districtsLoading
+                        ? 'Loading districts...'
+                        : 'Select district'}
+                    </option>
+                    {districts.map((district) => (
+                      <option key={district.id} value={district.id}>
+                        {district.name} — {district.division_display}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">
+                    Incident date
+                  </span>
+                  <input
+                    required
+                    type="date"
+                    max={todayValue()}
+                    value={formData.incident_date}
+                    onChange={(event) => {
+                      setFormData((current) => ({
+                        ...current,
+                        incident_date: event.target.value,
+                      }))
+                    }}
+                    className="h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10"
+                  />
+                </label>
+              </div>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">
+                  Anonymized summary
+                </span>
+                <textarea
+                  required
+                  rows={4}
+                  value={formData.summary}
+                  onChange={(event) => {
+                    setFormData((current) => ({
+                      ...current,
+                      summary: event.target.value,
+                    }))
+                  }}
+                  placeholder="Describe the suspected incident without names, phone numbers or identifying details..."
+                  className="w-full resize-y rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">
+                  General location description
+                </span>
+                <input
+                  required
+                  value={formData.location_description}
+                  onChange={(event) => {
+                    setFormData((current) => ({
+                      ...current,
+                      location_description: event.target.value,
+                    }))
+                  }}
+                  placeholder="Area, transit point or non-identifying landmark"
+                  className="h-11 w-full rounded-xl border border-slate-300 px-4 text-sm outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10"
+                />
+              </label>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">
+                    Total victims
+                  </span>
+                  <input
+                    required
+                    type="number"
+                    min={0}
+                    value={formData.total_victims}
+                    onChange={(event) => {
+                      setFormData((current) => ({
+                        ...current,
+                        total_victims: Number(event.target.value),
+                      }))
+                    }}
+                    className="h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">
+                    Minor victims
+                  </span>
+                  <input
+                    required
+                    type="number"
+                    min={0}
+                    value={formData.minor_victims}
+                    onChange={(event) => {
+                      setFormData((current) => ({
+                        ...current,
+                        minor_victims: Number(event.target.value),
+                      }))
+                    }}
+                    className="h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">
+                    Confidentiality
+                  </span>
+                  <select
+                    value={formData.confidentiality}
+                    onChange={(event) => {
+                      setFormData((current) => ({
+                        ...current,
+                        confidentiality: event.target.value as CaseConfidentiality,
+                      }))
+                    }}
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10"
+                  >
+                    {visibleConfidentialityOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">
+                    Latitude (optional)
+                  </span>
+                  <input
+                    inputMode="decimal"
+                    value={formData.latitude ?? ''}
+                    onChange={(event) => {
+                      setFormData((current) => ({
+                        ...current,
+                        latitude: event.target.value,
+                      }))
+                    }}
+                    placeholder="23.8103"
+                    className="h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">
+                    Longitude (optional)
+                  </span>
+                  <input
+                    inputMode="decimal"
+                    value={formData.longitude ?? ''}
+                    onChange={(event) => {
+                      setFormData((current) => ({
+                        ...current,
+                        longitude: event.target.value,
+                      }))
+                    }}
+                    placeholder="90.4125"
+                    className="h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10"
+                  />
+                </label>
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                Do not enter victim names, exact home addresses,
+                phone numbers or other directly identifying data.
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSaving}
+                className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={isSaving || districtsLoading}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#104968] px-5 text-sm font-semibold text-white transition hover:bg-[#0b3b56] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSaving && (
+                  <LoaderCircle size={17} className="animate-spin" />
+                )}
+                {isSaving ? 'Submitting...' : 'Submit case'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+function FormSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: string
+  options: Array<{
+    value: string
+    label: string
+  }>
+  onChange: (value: string) => void
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-semibold text-slate-700">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value)
+        }}
+        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
 

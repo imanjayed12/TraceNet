@@ -324,6 +324,58 @@ class CaseUpdateSerializer(serializers.ModelSerializer):
 
         return value
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+
+        is_ngo = bool(
+            user
+            and user.is_authenticated
+            and not user.is_superuser
+            and user.role == "ngo"
+        )
+
+        if not is_ngo:
+            return attrs
+
+        update_type = attrs.get(
+            "update_type",
+            CaseUpdate.UpdateType.NOTE,
+        )
+
+        allowed_ngo_update_types = {
+            CaseUpdate.UpdateType.NOTE,
+            CaseUpdate.UpdateType.OTHER,
+        }
+
+        if update_type not in allowed_ngo_update_types:
+            raise serializers.ValidationError(
+                {
+                    "update_type": (
+                        "NGO users may only add support notes "
+                        "or other non-operational updates."
+                    )
+                }
+            )
+
+        if attrs.get("is_internal", False):
+            raise serializers.ValidationError(
+                {
+                    "is_internal": (
+                        "NGO support updates cannot be marked "
+                        "as internal."
+                    )
+                }
+            )
+
+        # Backend enforcement prevents a manipulated frontend
+        # request from creating an internal NGO update.
+        attrs["is_internal"] = False
+
+        return attrs
+
 
 class CaseRouteSerializer(serializers.ModelSerializer):
     case_reference = serializers.CharField(
@@ -453,6 +505,20 @@ class VictimProfileSerializer(
                 "Support needs must be provided as a list."
             )
 
+        if any(
+            not isinstance(item, str)
+            for item in value
+        ):
+            raise serializers.ValidationError(
+                "Every support need must be a text category."
+            )
+
+        normalized_values = [
+            item.strip().lower()
+            for item in value
+            if item.strip()
+        ]
+
         allowed_support_needs = {
             "medical",
             "legal",
@@ -463,7 +529,10 @@ class VictimProfileSerializer(
             "livelihood",
         }
 
-        invalid_values = set(value) - allowed_support_needs
+        invalid_values = (
+            set(normalized_values)
+            - allowed_support_needs
+        )
 
         if invalid_values:
             raise serializers.ValidationError(
@@ -471,4 +540,27 @@ class VictimProfileSerializer(
                 + ", ".join(sorted(invalid_values))
             )
 
-        return value
+        # Remove duplicate categories while preserving order.
+        return list(dict.fromkeys(normalized_values))
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        if self.instance is not None:
+            submitted_case = attrs.get("case")
+
+            if (
+                submitted_case is not None
+                and submitted_case.pk
+                != self.instance.case_id
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "case_id": (
+                            "An existing victim profile cannot "
+                            "be moved to another case."
+                        )
+                    }
+                )
+
+        return attrs
