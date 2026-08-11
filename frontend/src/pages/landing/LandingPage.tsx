@@ -353,7 +353,7 @@ export function LandingPage() {
                     ? 'Open secure workspace'
                     : 'Sign in to TraceNet'}
 
-                  
+
                 </button>
 
                 {!isAuthenticated && (
