@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.exceptions import (
+    ValidationError as DjangoValidationError,
+)
 from rest_framework import serializers
 
 
@@ -8,24 +10,42 @@ User = get_user_model()
 
 
 class RegisterSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(
+        min_length=2,
+        max_length=150,
+        trim_whitespace=True,
+    )
+    phone = serializers.CharField(
+        max_length=20,
+        trim_whitespace=True,
+        allow_blank=True,
+        required=False,
+    )
+    organization = serializers.CharField(
+        min_length=2,
+        max_length=150,
+        trim_whitespace=True,
+    )
     password = serializers.CharField(
         write_only=True,
+        trim_whitespace=False,
         style={
             "input_type": "password",
         },
     )
     password_confirm = serializers.CharField(
         write_only=True,
+        trim_whitespace=False,
         style={
             "input_type": "password",
         },
     )
     role = serializers.ChoiceField(
         choices=(
-            ("police", "Police"),
-            ("ngo", "NGO"),
-            ("analyst", "Analyst"),
-            ("government", "Government"),
+            (User.Role.POLICE, "Police"),
+            (User.Role.NGO, "NGO"),
+            (User.Role.ANALYST, "Analyst"),
+            (User.Role.GOVERNMENT, "Government"),
         ),
     )
 
@@ -73,10 +93,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=attrs.get("email"),
             full_name=attrs.get("full_name"),
             phone=attrs.get("phone", ""),
-            organization=attrs.get(
-                "organization",
-                "",
-            ),
+            organization=attrs.get("organization", ""),
             role=attrs.get("role"),
         )
 
