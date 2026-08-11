@@ -14,6 +14,17 @@ import {
 import { useAuth } from './hooks/useAuth'
 import { LoginPage } from './pages/auth/LoginPage'
 
+const LandingPage = lazy(
+  async () => {
+    const module = await import(
+      './pages/landing/LandingPage'
+    )
+
+    return {
+      default: module.LandingPage,
+    }
+  },
+)
 
 const RegistrationPage = lazy(
   async () => {
@@ -289,7 +300,10 @@ export default function App() {
   return (
     <Suspense fallback={<LoadingScreen />}>
       <Switch>
-        <Route path="/" component={LoginPage} />
+        <Route
+          path="/"
+          component={LandingPage}
+        />
         <Route path="/login" component={LoginPage} />
 
         <Route
