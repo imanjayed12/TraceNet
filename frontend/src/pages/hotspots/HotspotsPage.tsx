@@ -25,6 +25,7 @@ import {
 } from '../../api/hotspots'
 import type {
   HotspotMutationData,
+  HotspotSubmissionData,
 } from '../../api/hotspots'
 import { AppShell } from '../../components/layout/AppShell'
 import { useAuth } from '../../hooks/useAuth'
@@ -131,13 +132,34 @@ export function HotspotsPage() {
     useState<HotspotMutationData>(initialFormData)
 
   const role = user?.role ?? ''
-  const canManage = [
+
+  const canCreateHotspots = [
     'admin',
-    'police',
     'government',
     'analyst',
   ].includes(role)
+
   const canDelete = role === 'admin'
+  const canControlWorkflow = role === 'admin'
+
+  const canEditHotspot = (
+    hotspot: IntelligenceHotspot,
+  ): boolean => {
+    if (
+      role === 'admin'
+      || role === 'analyst'
+    ) {
+      return true
+    }
+
+    if (role === 'government') {
+      return (
+        hotspot.created_by_id === user?.id
+      )
+    }
+
+    return false
+  }
 
   const loadHotspots = useCallback(async () => {
     setIsLoading(true)
@@ -242,7 +264,16 @@ export function HotspotsPage() {
     setFormOpen(true)
   }
 
-  const openEditForm = (hotspot: IntelligenceHotspot) => {
+  const openEditForm = (
+    hotspot: IntelligenceHotspot,
+  ) => {
+    if (!canEditHotspot(hotspot)) {
+      setError(
+        'You do not have permission to edit this hotspot.',
+      )
+      return
+    }
+
     setEditingHotspot(hotspot)
     setFormData({
       name: hotspot.name,
@@ -316,12 +347,31 @@ export function HotspotsPage() {
     setSuccessMessage('')
 
     try {
-      const payload: HotspotMutationData = {
-        ...formData,
+      const basePayload: HotspotSubmissionData = {
         name: formData.name.trim(),
+        district_id: formData.district_id,
         latitude: formData.latitude.trim(),
         longitude: formData.longitude.trim(),
+        hotspot_type: formData.hotspot_type,
+        recent_case_count:
+          formData.recent_case_count,
+        active_route_count:
+          formData.active_route_count,
+        verified_route_count:
+          formData.verified_route_count,
+        vulnerability_score:
+          formData.vulnerability_score,
       }
+
+      const payload: HotspotSubmissionData = (
+        canControlWorkflow
+          ? {
+              ...basePayload,
+              is_verified: formData.is_verified,
+              is_active: formData.is_active,
+            }
+          : basePayload
+      )
 
       if (editingHotspot) {
         await hotspotsApi.updateHotspot(
@@ -421,7 +471,7 @@ export function HotspotsPage() {
                 <RefreshCw size={18} />
                 Refresh hotspots
               </button>
-              {canManage && (
+              {canCreateHotspots && (
                 <button
                   type="button"
                   onClick={openCreateForm}
@@ -601,11 +651,13 @@ export function HotspotsPage() {
             ) : (
               <HotspotTable
                 hotspots={visibleHotspots}
-                canManage={canManage}
+                canEdit={canEditHotspot}
                 canDelete={canDelete}
                 deletingId={deletingId}
                 onEdit={openEditForm}
-                onDelete={(hotspot) => void handleDelete(hotspot)}
+                onDelete={(hotspot) => {
+                  void handleDelete(hotspot)
+                }}
               />
             )}
           </section>
@@ -620,6 +672,9 @@ export function HotspotsPage() {
           setFormData={setFormData}
           isSaving={isSaving}
           error={error}
+          canControlWorkflow={
+            canControlWorkflow
+          }
           onClose={closeForm}
           onSave={() => void handleSave()}
         />
@@ -740,14 +795,16 @@ function EmptyState({ loading = false }: { loading?: boolean }) {
 
 function HotspotTable({
   hotspots,
-  canManage,
+  canEdit,
   canDelete,
   deletingId,
   onEdit,
   onDelete,
 }: {
   hotspots: IntelligenceHotspot[]
-  canManage: boolean
+    canEdit: (
+    hotspot: IntelligenceHotspot,
+  ) => boolean
   canDelete: boolean
   deletingId: number | null
   onEdit: (hotspot: IntelligenceHotspot) => void
@@ -833,7 +890,7 @@ function HotspotTable({
               </td>
               <td className="px-5 py-5">
                 <div className="flex justify-end gap-2">
-                  {canManage && (
+                  {canEdit(hotspot) && (
                     <button
                       type="button"
                       onClick={() => onEdit(hotspot)}
@@ -876,6 +933,7 @@ function HotspotFormModal({
   setFormData,
   isSaving,
   error,
+  canControlWorkflow,
   onClose,
   onSave,
 }: {
@@ -885,6 +943,7 @@ function HotspotFormModal({
   setFormData: React.Dispatch<React.SetStateAction<HotspotMutationData>>
   isSaving: boolean
   error: string
+  canControlWorkflow: boolean
   onClose: () => void
   onSave: () => void
 }) {
@@ -1066,20 +1125,45 @@ function HotspotFormModal({
             </div>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <ToggleField
-              label="Verified intelligence"
-              description="Mark only after formal assessment."
-              checked={formData.is_verified}
-              onChange={(checked) => updateForm('is_verified', checked)}
-            />
-            <ToggleField
-              label="Active hotspot"
-              description="Include in current monitoring."
-              checked={formData.is_active}
-              onChange={(checked) => updateForm('is_active', checked)}
-            />
-          </div>
+          {canControlWorkflow ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ToggleField
+                label="Verified intelligence"
+                description="Mark only after formal assessment."
+                checked={formData.is_verified}
+                onChange={(checked) => {
+                  updateForm(
+                    'is_verified',
+                    checked,
+                  )
+                }}
+              />
+
+              <ToggleField
+                label="Active hotspot"
+                description="Include in current monitoring."
+                checked={formData.is_active}
+                onChange={(checked) => {
+                  updateForm(
+                    'is_active',
+                    checked,
+                  )
+                }}
+              />
+            </div>
+          ) : (
+            <div className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3">
+              <p className="text-sm font-semibold text-teal-900">
+                Administrative review required
+              </p>
+
+              <p className="mt-1 text-sm leading-6 text-teal-700">
+                The hotspot remains active and unverified
+                until an administrator completes the
+                formal review.
+              </p>
+            </div>
+          )}
         </div>
 
         <footer className="flex flex-wrap justify-end gap-3 border-t border-slate-200 px-6 py-5">

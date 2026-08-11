@@ -39,6 +39,19 @@ export interface HotspotMutationData {
 }
 
 
+export type HotspotSubmissionData =
+  Omit<
+    HotspotMutationData,
+    'is_verified' | 'is_active'
+  >
+  & Partial<
+    Pick<
+      HotspotMutationData,
+      'is_verified' | 'is_active'
+    >
+  >
+
+
 function normalizeList<T>(
   response: ApiListResponse<T>,
 ): T[] {
@@ -69,7 +82,10 @@ function buildQuery(
   }
 
   if (filters.risk_level) {
-    params.set('risk_level', filters.risk_level)
+    params.set(
+      'risk_level',
+      filters.risk_level,
+    )
   }
 
   if (filters.is_verified !== undefined) {
@@ -122,7 +138,7 @@ export const hotspotsApi = {
   },
 
   async createHotspot(
-    data: HotspotMutationData,
+    data: HotspotSubmissionData,
   ): Promise<IntelligenceHotspot> {
     const response =
       await apiClient.post<IntelligenceHotspot>(
@@ -135,7 +151,7 @@ export const hotspotsApi = {
 
   async updateHotspot(
     id: number,
-    data: Partial<HotspotMutationData>,
+    data: Partial<HotspotSubmissionData>,
   ): Promise<IntelligenceHotspot> {
     const response =
       await apiClient.patch<IntelligenceHotspot>(

@@ -835,13 +835,23 @@ function Sidebar({
                 || item.key === 'audit'
               )
 
+              const isReportsItemRestricted = (
+                item.key === 'reports'
+                && ![
+                  'admin',
+                  'analyst',
+                ].includes(role)
+              )
+
               if (
-                isAdminOnlyItem
-                && role !== 'admin'
+                (
+                  isAdminOnlyItem
+                  && role !== 'admin'
+                )
+                || isReportsItemRestricted
               ) {
                 return null
               }
-
               const Icon = item.icon
               const isActive = (
                 item.key === activeNavigation

@@ -60,6 +60,7 @@ export interface IntelligenceRoute {
   is_verified: boolean
   is_active: boolean
 
+  created_by_id: number | null
   created_by_name: string | null
   created_at: string
   updated_at: string
@@ -94,6 +95,7 @@ export interface IntelligenceHotspot {
   is_verified: boolean
   is_active: boolean
 
+  created_by_id: number | null
   created_by_name: string | null
   created_at: string
   updated_at: string

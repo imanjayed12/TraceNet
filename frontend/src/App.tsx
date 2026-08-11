@@ -14,6 +14,17 @@ import {
 import { useAuth } from './hooks/useAuth'
 import { LoginPage } from './pages/auth/LoginPage'
 
+
+const ADMIN_ONLY_ROLES: readonly string[] = [
+  'admin',
+]
+
+const REPORT_ROLES: readonly string[] = [
+  'admin',
+  'analyst',
+]
+
+
 const LandingPage = lazy(
   async () => {
     const module = await import(
@@ -25,6 +36,7 @@ const LandingPage = lazy(
     }
   },
 )
+
 
 const RegistrationPage = lazy(
   async () => {
@@ -90,6 +102,7 @@ const IntelligenceMapPage = lazy(
   },
 )
 
+
 const HotspotsPage = lazy(
   async () => {
     const module = await import(
@@ -101,6 +114,7 @@ const HotspotsPage = lazy(
     }
   },
 )
+
 
 const AlertsPage = lazy(
   async () => {
@@ -114,6 +128,7 @@ const AlertsPage = lazy(
   },
 )
 
+
 const ReportsPage = lazy(
   async () => {
     const module = await import(
@@ -126,6 +141,7 @@ const ReportsPage = lazy(
   },
 )
 
+
 const RoutesPage = lazy(
   async () => {
     const module = await import(
@@ -137,6 +153,8 @@ const RoutesPage = lazy(
     }
   },
 )
+
+
 const AuditPage = lazy(
   async () => {
     const module = await import(
@@ -149,6 +167,7 @@ const AuditPage = lazy(
   },
 )
 
+
 const UsersPage = lazy(
   async () => {
     const module = await import(
@@ -160,6 +179,7 @@ const UsersPage = lazy(
     }
   },
 )
+
 
 function LoadingScreen() {
   return (
@@ -178,8 +198,10 @@ function LoadingScreen() {
 
 function ProtectedPage({
   children,
+  allowedRoles,
 }: {
   children: ReactNode
+  allowedRoles?: readonly string[]
 }) {
   const [, navigate] = useLocation()
 
@@ -189,23 +211,48 @@ function ProtectedPage({
     isInitializing,
   } = useAuth()
 
+  const isRoleAllowed = (
+    !allowedRoles
+    || (
+      Boolean(user)
+      && allowedRoles.includes(user?.role ?? '')
+    )
+  )
+
   useEffect(() => {
-    if (!isInitializing && !isAuthenticated) {
+    if (isInitializing) {
+      return
+    }
+
+    if (!isAuthenticated || !user) {
       navigate('/login', {
+        replace: true,
+      })
+      return
+    }
+
+    if (!isRoleAllowed) {
+      navigate('/dashboard', {
         replace: true,
       })
     }
   }, [
     isAuthenticated,
     isInitializing,
+    isRoleAllowed,
     navigate,
+    user,
   ])
 
   if (isInitializing) {
     return <LoadingScreen />
   }
 
-  if (!isAuthenticated || !user) {
+  if (
+    !isAuthenticated
+    || !user
+    || !isRoleAllowed
+  ) {
     return null
   }
 
@@ -248,6 +295,7 @@ function ProtectedIntelligenceMap() {
   )
 }
 
+
 function ProtectedHotspots() {
   return (
     <ProtectedPage>
@@ -255,6 +303,7 @@ function ProtectedHotspots() {
     </ProtectedPage>
   )
 }
+
 
 function ProtectedAlerts() {
   return (
@@ -264,13 +313,15 @@ function ProtectedAlerts() {
   )
 }
 
+
 function ProtectedReports() {
   return (
-    <ProtectedPage>
+    <ProtectedPage allowedRoles={REPORT_ROLES}>
       <ReportsPage />
     </ProtectedPage>
   )
 }
+
 
 function ProtectedRoutes() {
   return (
@@ -280,21 +331,24 @@ function ProtectedRoutes() {
   )
 }
 
+
 function ProtectedAudit() {
   return (
-    <ProtectedPage>
+    <ProtectedPage allowedRoles={ADMIN_ONLY_ROLES}>
       <AuditPage />
     </ProtectedPage>
   )
 }
 
+
 function ProtectedUsers() {
   return (
-    <ProtectedPage>
+    <ProtectedPage allowedRoles={ADMIN_ONLY_ROLES}>
       <UsersPage />
     </ProtectedPage>
   )
 }
+
 
 export default function App() {
   return (
@@ -304,7 +358,11 @@ export default function App() {
           path="/"
           component={LandingPage}
         />
-        <Route path="/login" component={LoginPage} />
+
+        <Route
+          path="/login"
+          component={LoginPage}
+        />
 
         <Route
           path="/register"
@@ -360,6 +418,7 @@ export default function App() {
           path="/users"
           component={ProtectedUsers}
         />
+
         <Route component={LoginPage} />
       </Switch>
     </Suspense>

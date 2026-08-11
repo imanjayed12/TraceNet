@@ -53,6 +53,19 @@ export interface RouteMutationData {
 }
 
 
+export type RouteSubmissionData =
+  Omit<
+    RouteMutationData,
+    'is_verified' | 'is_active'
+  >
+  & Partial<
+    Pick<
+      RouteMutationData,
+      'is_verified' | 'is_active'
+    >
+  >
+
+
 function buildRouteParams(
   filters: RouteQueryFilters,
 ): Record<string, string> {
@@ -154,7 +167,7 @@ export const routesApi = {
   },
 
   async createRoute(
-    data: RouteMutationData,
+    data: RouteSubmissionData,
   ): Promise<IntelligenceRoute> {
     const response =
       await apiClient.post<IntelligenceRoute>(
@@ -167,7 +180,7 @@ export const routesApi = {
 
   async updateRoute(
     routeId: number,
-    data: Partial<RouteMutationData>,
+    data: Partial<RouteSubmissionData>,
   ): Promise<IntelligenceRoute> {
     const response =
       await apiClient.patch<IntelligenceRoute>(

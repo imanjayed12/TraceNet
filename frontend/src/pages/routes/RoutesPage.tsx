@@ -26,6 +26,7 @@ import {
 import type {
   RouteMutationData,
   RouteQueryFilters,
+  RouteSubmissionData,
 } from '../../api/routes'
 import { AppShell } from '../../components/layout/AppShell'
 import { useAuth } from '../../hooks/useAuth'
@@ -126,14 +127,36 @@ export function RoutesPage() {
 
   const role = user?.role ?? ''
 
-  const canManageRoutes = [
+  const canCreateRoutes = [
     'admin',
     'police',
     'government',
-    'analyst',
   ].includes(role)
 
   const canDeleteRoutes = role === 'admin'
+  const canControlWorkflow = role === 'admin'
+
+  const canEditRoute = (
+    route: IntelligenceRoute,
+  ): boolean => {
+    if (
+      role === 'admin'
+      || role === 'analyst'
+    ) {
+      return true
+    }
+
+    if (
+      role === 'police'
+      || role === 'government'
+    ) {
+      return (
+        route.created_by_id === user?.id
+      )
+    }
+
+    return false
+  }
 
   const loadRoutes = useCallback(async () => {
     setIsLoading(true)
@@ -211,6 +234,13 @@ export function RoutesPage() {
   const openEditForm = (
     route: IntelligenceRoute,
   ) => {
+    if (!canEditRoute(route)) {
+      setError(
+        'You can edit only routes you submitted.',
+      )
+      return
+    }
+
     setEditingRoute(route)
     setFormData({
       name: route.name,
@@ -278,13 +308,27 @@ export function RoutesPage() {
     setSuccessMessage('')
 
     try {
-      const payload: RouteMutationData = {
-        ...formData,
+      const basePayload: RouteSubmissionData = {
         name: formData.name.trim(),
+        origin_id: formData.origin_id,
+        destination_id: formData.destination_id,
+        route_type: formData.route_type,
+        transport_mode: formData.transport_mode,
+        risk_level: formData.risk_level,
         description: formData.description.trim(),
         evidence_summary:
           formData.evidence_summary.trim(),
       }
+
+      const payload: RouteSubmissionData = (
+        canControlWorkflow
+          ? {
+              ...basePayload,
+              is_verified: formData.is_verified,
+              is_active: formData.is_active,
+            }
+          : basePayload
+      )
 
       if (editingRoute) {
         await routesApi.updateRoute(
@@ -406,7 +450,7 @@ export function RoutesPage() {
                 Refresh routes
               </button>
 
-              {canManageRoutes && (
+              {canCreateRoutes && (
                 <button
                   type="button"
                   onClick={openCreateForm}
@@ -780,7 +824,7 @@ export function RoutesPage() {
 
                         <td className="px-5 py-5">
                           <div className="flex justify-end gap-2">
-                            {canManageRoutes && (
+                            {canEditRoute(route) && (
                               <button
                                 type="button"
                                 onClick={() => {
@@ -832,13 +876,16 @@ export function RoutesPage() {
       </main>
 
       {formOpen && (
-        <RouteFormModal
+      <RouteFormModal
           editingRoute={editingRoute}
           districts={districts}
           formData={formData}
           setFormData={setFormData}
           isSaving={isSaving}
           error={error}
+          canControlWorkflow={
+            canControlWorkflow
+          }
           onClose={closeForm}
           onSave={() => {
             void handleSave()
@@ -930,6 +977,7 @@ function RouteFormModal({
   setFormData,
   isSaving,
   error,
+  canControlWorkflow,
   onClose,
   onSave,
 }: {
@@ -941,6 +989,7 @@ function RouteFormModal({
   >
   isSaving: boolean
   error: string
+  canControlWorkflow: boolean
   onClose: () => void
   onSave: () => void
 }) {
@@ -1157,25 +1206,45 @@ function RouteFormModal({
             />
           </FormField>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <ToggleField
-              label="Verified intelligence"
-              description="Mark only after formal assessment."
-              checked={formData.is_verified}
-              onChange={(checked) => {
-                updateForm('is_verified', checked)
-              }}
-            />
+          {canControlWorkflow ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ToggleField
+                label="Verified intelligence"
+                description="Mark only after formal assessment."
+                checked={formData.is_verified}
+                onChange={(checked) => {
+                  updateForm(
+                    'is_verified',
+                    checked,
+                  )
+                }}
+              />
 
-            <ToggleField
-              label="Active route"
-              description="Include in current monitoring."
-              checked={formData.is_active}
-              onChange={(checked) => {
-                updateForm('is_active', checked)
-              }}
-            />
-          </div>
+              <ToggleField
+                label="Active route"
+                description="Include in current monitoring."
+                checked={formData.is_active}
+                onChange={(checked) => {
+                  updateForm(
+                    'is_active',
+                    checked,
+                  )
+                }}
+              />
+            </div>
+          ) : (
+            <div className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3">
+              <p className="text-sm font-semibold text-teal-900">
+                Administrative review required
+              </p>
+
+              <p className="mt-1 text-sm leading-6 text-teal-700">
+                Your submission will remain active and
+                unverified until an administrator completes
+                the formal review.
+              </p>
+            </div>
+          )}
         </div>
 
         <footer className="flex flex-wrap justify-end gap-3 border-t border-slate-200 px-6 py-5">
