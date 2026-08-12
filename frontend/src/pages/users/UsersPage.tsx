@@ -381,6 +381,16 @@ export function UsersPage() {
       }
 
       replaceUser(response.user)
+
+      if (
+        state.action === 'approve'
+        || state.action === 'reject'
+      ) {
+        window.dispatchEvent(
+          new Event('tracenet:pending-users-changed'),
+        )
+      }
+
       setSuccessMessage(response.detail)
       setConfirmation(null)
     } catch (error) {

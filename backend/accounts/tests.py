@@ -3,6 +3,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from alerts.models import Alert, AlertRecipient
 from audit.models import AuditLog
 
 
@@ -393,6 +394,81 @@ class AuthenticationWorkflowTests(APITestCase):
         self.assertEqual(
             response.data["user"]["approval_status"],
             User.AccessStatus.PENDING,
+        )
+
+    def test_registration_notifies_only_authorized_admins(
+        self,
+    ):
+        approved_admin = User.objects.create_user(
+            email="registration.admin@tracenet.local",
+            password="RegistrationAdminPass123!",
+            full_name="Registration Review Administrator",
+            organization="TraceNet Administration Unit",
+            role=User.Role.ADMIN,
+            access_status=User.AccessStatus.APPROVED,
+            is_active=True,
+            is_staff=True,
+        )
+        User.objects.create_user(
+            email="inactive.admin@tracenet.local",
+            password="InactiveAdminPass123!",
+            full_name="Inactive Administrator",
+            organization="TraceNet Administration Unit",
+            role=User.Role.ADMIN,
+            access_status=User.AccessStatus.APPROVED,
+            is_active=False,
+            is_staff=True,
+        )
+        User.objects.create_user(
+            email="registration.analyst@tracenet.local",
+            password="RegistrationAnalystPass123!",
+            full_name="Registration Analyst",
+            organization="TraceNet Analysis Unit",
+            role=User.Role.ANALYST,
+            access_status=User.AccessStatus.APPROVED,
+            is_active=True,
+        )
+
+        response = self.client.post(
+            reverse("accounts:register"),
+            self.registration_data(),
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED,
+        )
+
+        alert = Alert.objects.get(
+            alert_type=Alert.AlertType.SYSTEM,
+            title="New registration awaiting approval",
+        )
+        recipient_ids = set(
+            AlertRecipient.objects.filter(
+                alert=alert,
+            ).values_list(
+                "user_id",
+                flat=True,
+            )
+        )
+
+        self.assertEqual(
+            alert.severity,
+            Alert.Severity.WARNING,
+        )
+        self.assertEqual(
+            recipient_ids,
+            {approved_admin.id},
+        )
+        self.assertEqual(alert.target_roles, [])
+        self.assertNotIn(
+            response.data["user"]["email"],
+            alert.message,
+        )
+        self.assertNotIn(
+            response.data["user"]["full_name"],
+            alert.message,
         )
 
     def test_admin_role_cannot_be_self_registered(self):

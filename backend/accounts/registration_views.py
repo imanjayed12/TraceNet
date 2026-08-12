@@ -1,11 +1,18 @@
+from django.contrib.auth import get_user_model
+from django.db import transaction
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from alerts.models import Alert
+from alerts.services import create_alert_with_recipients
 from audit.models import AuditLog
 from audit.services import record_audit_event
 
 from .registration_serializers import RegisterSerializer
+
+
+User = get_user_model()
 
 
 class RegisterView(generics.CreateAPIView):
@@ -13,6 +20,7 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = (AllowAny,)
     authentication_classes = ()
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(
             data=request.data,
@@ -40,6 +48,24 @@ class RegisterView(generics.CreateAPIView):
             },
         )
 
+
+        administrators = User.objects.filter(
+            role=User.Role.ADMIN,
+            access_status=User.AccessStatus.APPROVED,
+            is_active=True,
+            is_staff=True,
+        )
+
+        create_alert_with_recipients(
+            alert_type=Alert.AlertType.SYSTEM,
+            severity=Alert.Severity.WARNING,
+            title="New registration awaiting approval",
+            message=(
+                "A new professional account registration "
+                "requires administrator review."
+            ),
+            explicit_users=administrators,
+        )
         return Response(
             {
                 "detail": (

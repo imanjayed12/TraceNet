@@ -34,6 +34,7 @@ import {
 } from 'wouter'
 
 import { alertsApi } from '../../api/alerts'
+import { usersApi } from '../../api/users'
 import { useAuth } from '../../hooks/useAuth'
 import type {
   AlertInboxItem,
@@ -244,6 +245,60 @@ export function AppShell({
     user,
     logout,
   } = useAuth()
+  const [pendingUserCount, setPendingUserCount] = (
+    useState(0)
+  )
+
+  const loadPendingUserCount = useCallback(
+    async () => {
+      if (user?.role !== 'admin') {
+        setPendingUserCount(0)
+        return
+      }
+
+      try {
+        const pendingUsers = await usersApi.getUsers({
+          access_status: 'pending',
+        })
+        setPendingUserCount(pendingUsers.length)
+      } catch {
+        // Keep the most recently verified count.
+      }
+    },
+    [user?.role],
+  )
+
+  useEffect(() => {
+    if (user?.role !== 'admin') {
+      setPendingUserCount(0)
+      return undefined
+    }
+
+    void loadPendingUserCount()
+
+    const refreshInterval = window.setInterval(
+      () => {
+        void loadPendingUserCount()
+      },
+      60_000,
+    )
+    const handlePendingUsersChanged = () => {
+      void loadPendingUserCount()
+    }
+
+    window.addEventListener(
+      'tracenet:pending-users-changed',
+      handlePendingUsersChanged,
+    )
+
+    return () => {
+      window.clearInterval(refreshInterval)
+      window.removeEventListener(
+        'tracenet:pending-users-changed',
+        handlePendingUsersChanged,
+      )
+    }
+  }, [loadPendingUserCount, user?.role])
 
   const handleLogout = () => {
     void logout().finally(() => {
@@ -257,6 +312,7 @@ export function AppShell({
         activeNavigation={activeNavigation}
         userName={user?.full_name ?? 'TraceNet user'}
         role={user?.role ?? ''}
+        pendingUserCount={pendingUserCount}
         open={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
         onLogout={handleLogout}
@@ -501,7 +557,16 @@ function NotificationCenter({
     }
 
     setIsOpen(false)
-    navigate('/alerts')
+    const isRegistrationAlert = (
+      item.alert_type === 'system'
+      && item.title === (
+        'New registration awaiting approval'
+      )
+    )
+
+    navigate(
+      isRegistrationAlert ? '/users' : '/alerts',
+    )
   }
 
   const handleMarkAllRead = async () => {
@@ -772,6 +837,7 @@ function Sidebar({
   activeNavigation,
   userName,
   role,
+  pendingUserCount,
   open,
   onClose,
   onLogout,
@@ -779,6 +845,7 @@ function Sidebar({
   activeNavigation: NavigationKey
   userName: string
   role: string
+  pendingUserCount: number
   open: boolean
   onClose: () => void
   onLogout: () => void
@@ -896,6 +963,17 @@ function Sidebar({
                 >
                   <Icon size={19} />
                   {item.label}
+
+                  {(
+                    item.key === 'users'
+                    && pendingUserCount > 0
+                  ) && (
+                    <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-amber-300 px-1.5 py-0.5 text-[10px] font-extrabold leading-none text-slate-950">
+                      {pendingUserCount > 99
+                        ? '99+'
+                        : pendingUserCount}
+                    </span>
+                  )}
                 </Link>
               )
             })}
