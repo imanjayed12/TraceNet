@@ -155,7 +155,7 @@ export function ForgotPasswordPage() {
 
                 <Link
                   href="/login"
-                  className="mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#0d3a58] text-white px-6 font-semibold text-white shadow-lg shadow-[#0d3a58]/15 transition hover:bg-[#124b6d]"
+                  className="mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#0d3a58] px-6 font-semibold !text-white shadow-lg shadow-[#0d3a58]/15 transition hover:bg-[#124b6d]"
                 >
                   Return to login
                   <ArrowRight className="h-5 w-5" />
