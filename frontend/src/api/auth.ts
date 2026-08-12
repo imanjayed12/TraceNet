@@ -5,6 +5,9 @@ import type {
   AuthUser,
   LoginCredentials,
   LoginResponse,
+  PasswordChangeData,
+  PasswordChangeResponse,
+  ProfileUpdateData,
   RegistrationData,
 } from '../types/auth'
 
@@ -56,6 +59,32 @@ export const authApi = {
     const response = await apiClient.get<AuthUser>(
       '/auth/me/',
     )
+
+    return response.data
+  },
+
+  async updateProfile(
+    data: ProfileUpdateData,
+  ): Promise<AuthUser> {
+    const response = await apiClient.patch<AuthUser>(
+      '/auth/me/',
+      data,
+    )
+
+    return response.data
+  },
+
+  async changePassword(
+    data: PasswordChangeData,
+  ): Promise<PasswordChangeResponse> {
+    const response = (
+      await apiClient.post<PasswordChangeResponse>(
+        '/auth/password/change/',
+        data,
+      )
+    )
+
+    tokenStorage.clearTokens()
 
     return response.data
   },

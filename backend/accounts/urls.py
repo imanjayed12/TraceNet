@@ -14,6 +14,7 @@ from .views import (
     CurrentUserView,
     CustomTokenObtainPairView,
     LogoutView,
+    PasswordChangeView,
 )
 
 
@@ -44,6 +45,11 @@ urlpatterns = [
         "me/",
         CurrentUserView.as_view(),
         name="current-user",
+    ),
+    path(
+    "password/change/",
+    PasswordChangeView.as_view(),
+    name="password-change",
     ),
     path(
         "users/",

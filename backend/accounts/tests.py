@@ -583,3 +583,292 @@ class AuthenticationWorkflowTests(APITestCase):
             "access_status_display",
             response.data,
         )
+class ProfileSecurityTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="profile.user@tracenet.local",
+            password="CurrentSecure#12345",
+            full_name="Profile Security User",
+            phone="01700000010",
+            organization="TraceNet Profile Unit",
+            role=User.Role.ANALYST,
+            access_status=User.AccessStatus.APPROVED,
+            is_active=True,
+        )
+
+        self.client.force_authenticate(
+            user=self.user,
+        )
+
+    def test_user_can_update_own_profile(self):
+        response = self.client.patch(
+            reverse("accounts:current-user"),
+            {
+                "full_name": "Updated Profile User",
+                "phone": "01800000020",
+                "organization": "Updated TraceNet Unit",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertEqual(
+            self.user.full_name,
+            "Updated Profile User",
+        )
+        self.assertEqual(
+            self.user.phone,
+            "01800000020",
+        )
+        self.assertEqual(
+            self.user.organization,
+            "Updated TraceNet Unit",
+        )
+
+        self.assertTrue(
+            AuditLog.objects.filter(
+                action=AuditLog.Action.UPDATE,
+                actor=self.user,
+                resource_type="user_profile",
+                resource_id=str(self.user.pk),
+                success=True,
+            ).exists()
+        )
+
+    def test_user_cannot_change_protected_identity_fields(self):
+        original_email = self.user.email
+        original_role = self.user.role
+
+        response = self.client.patch(
+            reverse("accounts:current-user"),
+            {
+                "email": "changed@tracenet.local",
+                "role": User.Role.ADMIN,
+                "access_status": (
+                    User.AccessStatus.REJECTED
+                ),
+                "is_active": False,
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertEqual(
+            self.user.email,
+            original_email,
+        )
+        self.assertEqual(
+            self.user.role,
+            original_role,
+        )
+        self.assertEqual(
+            self.user.access_status,
+            User.AccessStatus.APPROVED,
+        )
+        self.assertTrue(self.user.is_active)
+
+    def test_profile_requires_valid_organization(self):
+        response = self.client.patch(
+            reverse("accounts:current-user"),
+            {
+                "organization": "",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertIn(
+            "organization",
+            response.data,
+        )
+
+    def test_password_change_rejects_wrong_current_password(
+        self,
+    ):
+        response = self.client.post(
+            reverse("accounts:password-change"),
+            {
+                "current_password": "WrongPassword#123",
+                "new_password": "BlueHarbor#9682Secure!",
+                "new_password_confirm": (
+                    "BlueHarbor#9682Secure!"
+                ),
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertIn(
+            "current_password",
+            response.data,
+        )
+
+    def test_password_change_rejects_mismatch(self):
+        response = self.client.post(
+            reverse("accounts:password-change"),
+            {
+                "current_password": (
+                    "CurrentSecure#12345"
+                ),
+                "new_password": "BlueHarbor#9682Secure!",
+                "new_password_confirm": (
+                    "DifferentRiver#8642Secure!"
+                ),
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertIn(
+            "new_password_confirm",
+            response.data,
+        )
+
+    def test_new_password_must_differ_from_current(self):
+        response = self.client.post(
+            reverse("accounts:password-change"),
+            {
+                "current_password": (
+                    "CurrentSecure#12345"
+                ),
+                "new_password": "CurrentSecure#12345",
+                "new_password_confirm": (
+                    "CurrentSecure#12345"
+                ),
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertIn(
+            "new_password",
+            response.data,
+        )
+
+    def test_password_change_rejects_weak_password(self):
+        response = self.client.post(
+            reverse("accounts:password-change"),
+            {
+                "current_password": (
+                    "CurrentSecure#12345"
+                ),
+                "new_password": "123",
+                "new_password_confirm": "123",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertIn(
+            "new_password",
+            response.data,
+        )
+
+    def test_password_change_succeeds_and_revokes_sessions(
+        self,
+        ):
+        from rest_framework_simplejwt.token_blacklist.models import (
+            BlacklistedToken,
+        )
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        RefreshToken.for_user(self.user)
+
+        response = self.client.post(
+            reverse("accounts:password-change"),
+            {
+                "current_password": (
+                    "CurrentSecure#12345"
+                ),
+                "new_password": "BlueHarbor#9682Secure!",
+                "new_password_confirm": (
+                    "BlueHarbor#9682Secure!"
+                ),
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertTrue(
+            self.user.check_password(
+                "BlueHarbor#9682Secure!"
+            )
+        )
+        self.assertTrue(
+            BlacklistedToken.objects.filter(
+                token__user=self.user,
+            ).exists()
+        )
+        self.assertTrue(
+            AuditLog.objects.filter(
+                action=AuditLog.Action.UPDATE,
+                actor=self.user,
+                resource_type="authentication",
+                resource_id=str(self.user.pk),
+                resource_label="Password changed",
+                success=True,
+            ).exists()
+        )
+
+        self.client.force_authenticate(
+            user=None,
+        )
+
+        old_login_response = self.client.post(
+            reverse("accounts:login"),
+            {
+                "email": self.user.email,
+                "password": "CurrentSecure#12345",
+            },
+            format="json",
+        )
+        new_login_response = self.client.post(
+            reverse("accounts:login"),
+            {
+                "email": self.user.email,
+                "password": "BlueHarbor#9682Secure!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            old_login_response.status_code,
+            status.HTTP_401_UNAUTHORIZED,
+        )
+        self.assertEqual(
+            new_login_response.status_code,
+            status.HTTP_200_OK,
+        )

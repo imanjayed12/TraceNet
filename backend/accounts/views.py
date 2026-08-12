@@ -8,6 +8,10 @@ from rest_framework.permissions import (
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import (
+    BlacklistedToken,
+    OutstandingToken,
+)
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
@@ -16,9 +20,9 @@ from audit.services import record_audit_event
 
 from .serializers import (
     CustomTokenObtainPairSerializer,
+    PasswordChangeSerializer,
     UserProfileSerializer,
 )
-
 
 User = get_user_model()
 
@@ -87,6 +91,102 @@ class CurrentUserView(APIView):
             status=status.HTTP_200_OK,
         )
 
+    def patch(self, request):
+        serializer = UserProfileSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(
+            raise_exception=True,
+        )
+
+        changed_fields = sorted(
+            set(serializer.validated_data.keys())
+        )
+        user = serializer.save()
+
+        record_audit_event(
+            action=AuditLog.Action.UPDATE,
+            request=request,
+            actor=user,
+            actor_email=user.email,
+            resource_type="user_profile",
+            resource_id=user.pk,
+            resource_label="Profile updated",
+            status_code=status.HTTP_200_OK,
+            success=True,
+            metadata={
+                "changed_fields": changed_fields,
+            },
+        )
+
+        return Response(
+            UserProfileSerializer(user).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class PasswordChangeView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        serializer = PasswordChangeSerializer(
+            data=request.data,
+            context={
+                "request": request,
+            },
+        )
+        serializer.is_valid(
+            raise_exception=True,
+        )
+
+        user = request.user
+        user.set_password(
+            serializer.validated_data["new_password"]
+        )
+        user.save(
+            update_fields=[
+                "password",
+            ],
+        )
+
+        outstanding_tokens = (
+            OutstandingToken.objects.filter(
+                user=user,
+            )
+        )
+
+        for outstanding_token in outstanding_tokens:
+            BlacklistedToken.objects.get_or_create(
+                token=outstanding_token,
+            )
+
+        record_audit_event(
+            action=AuditLog.Action.UPDATE,
+            request=request,
+            actor=user,
+            actor_email=user.email,
+            resource_type="authentication",
+            resource_id=user.pk,
+            resource_label="Password changed",
+            status_code=status.HTTP_200_OK,
+            success=True,
+            metadata={
+                "sessions_revoked": True,
+            },
+        )
+
+        return Response(
+            {
+                "detail": (
+                    "Password changed successfully. "
+                    "Please sign in again."
+                )
+            },
+            status=status.HTTP_200_OK,
+        )
+
 
 class LogoutView(APIView):
     permission_classes = (IsAuthenticated,)
@@ -109,7 +209,11 @@ class LogoutView(APIView):
             )
 
             return Response(
-                {"detail": "Refresh token is required."},
+                {
+                    "detail": (
+                        "Refresh token is required."
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -152,6 +256,8 @@ class LogoutView(APIView):
         )
 
         return Response(
-            {"detail": "Logout successful."},
+            {
+                "detail": "Logout successful.",
+            },
             status=status.HTTP_200_OK,
         )

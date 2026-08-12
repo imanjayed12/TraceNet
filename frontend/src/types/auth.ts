@@ -20,6 +20,7 @@ export interface AuthUser {
   role: UserRole
   is_active: boolean
   access_status: AccessStatus
+  access_status_display: string
 }
 
 export interface LoginResponse {
@@ -46,4 +47,20 @@ export interface RegistrationData {
   role: Exclude<UserRole, 'admin'>
   password: string
   password_confirm: string
+}
+
+export interface ProfileUpdateData {
+  full_name: string
+  phone: string
+  organization: string
+}
+
+export interface PasswordChangeData {
+  current_password: string
+  new_password: string
+  new_password_confirm: string
+}
+
+export interface PasswordChangeResponse {
+  detail: string
 }

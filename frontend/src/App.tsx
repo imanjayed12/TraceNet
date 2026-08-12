@@ -181,6 +181,19 @@ const UsersPage = lazy(
 )
 
 
+const ProfilePage = lazy(
+  async () => {
+    const module = await import(
+      './pages/profile/ProfilePage'
+    )
+
+    return {
+      default: module.ProfilePage,
+    }
+  },
+)
+
+
 function LoadingScreen() {
   return (
     <main className="grid min-h-screen place-items-center bg-[#f4f7fb]">
@@ -350,6 +363,15 @@ function ProtectedUsers() {
 }
 
 
+function ProtectedProfile() {
+  return (
+    <ProtectedPage>
+      <ProfilePage />
+    </ProtectedPage>
+  )
+}
+
+
 export default function App() {
   return (
     <Suspense fallback={<LoadingScreen />}>
@@ -417,6 +439,11 @@ export default function App() {
         <Route
           path="/users"
           component={ProtectedUsers}
+        />
+
+        <Route
+          path="/profile"
+          component={ProtectedProfile}
         />
 
         <Route component={LoginPage} />

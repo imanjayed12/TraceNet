@@ -51,6 +51,7 @@ export type NavigationKey =
   | 'reports'
   | 'audit'
   | 'users'
+  | 'profile'
 
 
 interface NavigationItem {
@@ -266,6 +267,7 @@ export function AppShell({
           userName={user?.full_name ?? 'User'}
           fallbackUnreadCount={unreadAlertCount}
           onOpenMenu={() => setMobileMenuOpen(true)}
+          onOpenProfile={() => navigate('/profile')}
         />
 
         {children}
@@ -279,10 +281,12 @@ function TopBar({
   userName,
   fallbackUnreadCount,
   onOpenMenu,
+  onOpenProfile,
 }: {
   userName: string
   fallbackUnreadCount: number
   onOpenMenu: () => void
+  onOpenProfile: () => void
 }) {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
@@ -311,21 +315,26 @@ function TopBar({
             fallbackUnreadCount={fallbackUnreadCount}
           />
 
-          <div className="hidden items-center gap-3 border-l border-slate-200 pl-3 sm:flex">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100 font-bold text-teal-800">
+          <button
+            type="button"
+            onClick={onOpenProfile}
+            aria-label="Open profile and security settings"
+            className="flex items-center gap-3 rounded-xl border-l border-slate-200 py-1 pl-3 pr-2 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100 font-bold text-teal-800">
               {userName.charAt(0).toUpperCase()}
-            </div>
+            </span>
 
-            <div className="max-w-44">
-              <p className="truncate text-sm font-semibold text-slate-900">
+            <span className="hidden max-w-44 sm:block">
+              <span className="block truncate text-sm font-semibold text-slate-900">
                 {userName}
-              </p>
+              </span>
 
-              <p className="text-xs text-emerald-600">
-                Authenticated
-              </p>
-            </div>
-          </div>
+              <span className="block text-xs text-emerald-600">
+                Profile & security
+              </span>
+            </span>
+          </button>
         </div>
       </div>
     </header>
