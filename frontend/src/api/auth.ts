@@ -9,6 +9,9 @@ import type {
   PasswordChangeResponse,
   ProfileUpdateData,
   RegistrationData,
+  PasswordResetConfirmData,
+  PasswordResetRequestData,
+  PasswordResetResponse,
 } from '../types/auth'
 
 
@@ -86,6 +89,33 @@ export const authApi = {
 
     tokenStorage.clearTokens()
 
+    return response.data
+  },
+
+  async requestPasswordReset(
+    data: PasswordResetRequestData,
+  ): Promise<PasswordResetResponse> {
+    const response = await apiClient.post<
+      PasswordResetResponse
+    >(
+      '/auth/password/reset/',
+      data,
+    )
+
+    return response.data
+  },
+
+  async confirmPasswordReset(
+    data: PasswordResetConfirmData,
+  ): Promise<PasswordResetResponse> {
+    const response = await apiClient.post<
+      PasswordResetResponse
+    >(
+      '/auth/password/reset/confirm/',
+      data,
+    )
+
+    tokenStorage.clearTokens()
     return response.data
   },
 

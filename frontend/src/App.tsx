@@ -51,6 +51,32 @@ const RegistrationPage = lazy(
 )
 
 
+const ForgotPasswordPage = lazy(
+  async () => {
+    const module = await import(
+      './pages/auth/ForgotPasswordPage'
+    )
+
+    return {
+      default: module.ForgotPasswordPage,
+    }
+  },
+)
+
+
+const ResetPasswordPage = lazy(
+  async () => {
+    const module = await import(
+      './pages/auth/ResetPasswordPage'
+    )
+
+    return {
+      default: module.ResetPasswordPage,
+    }
+  },
+)
+
+
 const DashboardPage = lazy(
   async () => {
     const module = await import(
@@ -389,6 +415,16 @@ export default function App() {
         <Route
           path="/register"
           component={RegistrationPage}
+        />
+
+        <Route
+          path="/forgot-password"
+          component={ForgotPasswordPage}
+        />
+
+        <Route
+          path="/reset-password"
+          component={ResetPasswordPage}
         />
 
         <Route

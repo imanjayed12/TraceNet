@@ -64,3 +64,21 @@ export interface PasswordChangeData {
 export interface PasswordChangeResponse {
   detail: string
 }
+
+
+export interface PasswordResetRequestData {
+  email: string
+}
+
+
+export interface PasswordResetConfirmData {
+  uid: string
+  token: string
+  new_password: string
+  new_password_confirm: string
+}
+
+
+export interface PasswordResetResponse {
+  detail: string
+}

@@ -9,6 +9,10 @@ from .management_views import (
     AdminUserListView,
     AdminUserRejectView,
 )
+from .password_reset import (
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
+)
 from .registration_views import RegisterView
 from .views import (
     CurrentUserView,
@@ -50,6 +54,16 @@ urlpatterns = [
     "password/change/",
     PasswordChangeView.as_view(),
     name="password-change",
+    ),
+    path(
+        "password/reset/",
+        PasswordResetRequestView.as_view(),
+        name="password-reset-request",
+    ),
+    path(
+        "password/reset/confirm/",
+        PasswordResetConfirmView.as_view(),
+        name="password-reset-confirm",
     ),
     path(
         "users/",

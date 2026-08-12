@@ -220,9 +220,12 @@ export function LoginPage() {
                   >
                     Password
                   </label>
-                  <span className="text-xs text-slate-500">
-                    Case-sensitive
-                  </span>
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs font-semibold text-[#087b72] transition hover:text-[#075f59]"
+                  >
+                    Forgot password
+                  </Link>
                 </div>
 
                 <div className="relative">
