@@ -23,7 +23,7 @@ interface RetryableRequestConfig
 
 export const apiClient = axios.create({
   baseURL: apiBaseUrl,
-  timeout: 15000,
+  timeout: 75000,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -33,7 +33,7 @@ export const apiClient = axios.create({
 
 const refreshClient = axios.create({
   baseURL: apiBaseUrl,
-  timeout: 15000,
+  timeout: 75000,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
