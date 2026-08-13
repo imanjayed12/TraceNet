@@ -6,6 +6,8 @@ Local development and automated tests continue to use their existing settings.
 
 import os
 
+import dj_database_url
+
 from .settings import *  # noqa: F401,F403
 
 
@@ -20,6 +22,20 @@ def env_bool(name, default=False):
 
 # Production must never expose Django debug pages.
 DEBUG = False
+
+# Neon supplies a secure PostgreSQL URL in production. Without DATABASE_URL,
+# the base MySQL configuration remains available for local production checks.
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+
+if DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=60,
+            conn_health_checks=True,
+            ssl_require=True,
+        )
+    }
 
 # collectstatic writes assets here for the deployment web server or platform.
 STATIC_ROOT = BASE_DIR / "staticfiles"
