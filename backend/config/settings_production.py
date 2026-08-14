@@ -105,3 +105,21 @@ if env_bool("DJANGO_TRUST_X_FORWARDED_PROTO", False):
         "HTTP_X_FORWARDED_PROTO",
         "https",
     )
+
+# Brevo transactional email over HTTPS (Render Free blocks SMTP ports).
+EMAIL_BACKEND = "config.brevo_email_backend.BrevoAPIEmailBackend"
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "").strip()
+BREVO_API_URL = os.getenv(
+    "BREVO_API_URL",
+    "https://api.brevo.com/v3/smtp/email",
+).strip()
+BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL", "").strip()
+BREVO_SENDER_NAME = os.getenv(
+    "BREVO_SENDER_NAME",
+    "TraceNet Security",
+).strip()
+
+if BREVO_SENDER_EMAIL:
+    DEFAULT_FROM_EMAIL = (
+        f"{BREVO_SENDER_NAME} <{BREVO_SENDER_EMAIL}>"
+    )
