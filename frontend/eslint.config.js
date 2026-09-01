@@ -18,5 +18,9 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // TraceNet intentionally loads asynchronous page data in effects.
+      'react-hooks/set-state-in-effect': 'off',
+    },
   },
 ])

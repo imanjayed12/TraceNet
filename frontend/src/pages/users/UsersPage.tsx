@@ -426,11 +426,9 @@ export function UsersPage() {
       setSuccessMessage(
         'User role and access settings updated successfully.',
       )
-    } catch (error) {
-      throw error
-    } finally {
+      } finally {
       setProcessingUserId(null)
-    }
+      }
   }
 
   if (!isAdministrator) {
