@@ -5,7 +5,7 @@ A secure, role-based intelligence and response system for managing human traffic
 [![Backend CI](https://github.com/imanjayed12/TraceNet/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/imanjayed12/TraceNet/actions/workflows/backend-ci.yml)
 ![Django](https://img.shields.io/badge/Django-5.2-092E20?logo=django)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
+![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python)
 
 ## Overview
