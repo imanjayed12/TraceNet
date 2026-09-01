@@ -916,7 +916,8 @@ function Sidebar({
                 && ![
                   'admin',
                   'analyst',
-                ].includes(role)
+                  'government',
+                  ].includes(role)
               )
 
               if (

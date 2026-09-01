@@ -22,6 +22,7 @@ const ADMIN_ONLY_ROLES: readonly string[] = [
 const REPORT_ROLES: readonly string[] = [
   'admin',
   'analyst',
+  'government',
 ]
 
 

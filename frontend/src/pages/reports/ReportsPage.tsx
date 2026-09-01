@@ -348,7 +348,8 @@ export function ReportsPage() {
 
   const canGenerateReports = (
     user?.role === 'admin' ||
-    user?.role === 'analyst'
+    user?.role === 'analyst' ||
+    user?.role === 'government'
   )
 
   const loadReports = useCallback(async () => {
