@@ -2,6 +2,8 @@
 
 A secure, role-based intelligence and response system for managing human trafficking cases, victims, routes, hotspots, alerts, analytical reports, and audit activities.
 
+**Live Demo:** [https://tracenet-frontend.vercel.app/](https://tracenet-frontend.vercel.app/)
+
 [![Backend CI](https://github.com/imanjayed12/TraceNet/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/imanjayed12/TraceNet/actions/workflows/backend-ci.yml)
 [![Frontend CI](https://github.com/imanjayed12/TraceNet/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/imanjayed12/TraceNet/actions/workflows/frontend-ci.yml)
 
@@ -30,6 +32,41 @@ The platform combines secure case management with route and hotspot intelligence
 - Audit and compliance monitoring
 - Password reset and secure session management
 - Responsive dashboard and interactive intelligence map
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%">
+      <strong>Landing Page</strong><br>
+      <img src="docs/screenshots/landing-page.png" alt="TraceNet landing page">
+    </td>
+    <td width="50%">
+      <strong>Dashboard</strong><br>
+      <img src="docs/screenshots/dashboard.png" alt="TraceNet dashboard">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <strong>Case Management</strong><br>
+      <img src="docs/screenshots/case-management.png" alt="TraceNet case management">
+    </td>
+    <td width="50%">
+      <strong>Intelligence Map</strong><br>
+      <img src="docs/screenshots/intelligence-map.png" alt="TraceNet intelligence map">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <strong>Route Management</strong><br>
+      <img src="docs/screenshots/route-management.png" alt="TraceNet route management">
+    </td>
+    <td width="50%">
+      <strong>Reports and Analytics</strong><br>
+      <img src="docs/screenshots/reports.png" alt="TraceNet reports and analytics">
+    </td>
+  </tr>
+</table>
 
 ## User Roles
 
